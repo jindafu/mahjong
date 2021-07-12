@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="format-detection" content="telephone=no">
+<title>maj</title>
+<!-- <script type="text/javascript" src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js"></script> -->
+<script type="text/javascript" src="./jquery-1.11.1.min.js"></script>
+<style>
+	.paiColor{
+		color:blue;
+		font-size: 20px;
+	}
+	.table-d table{ background:#F00} 
+	.table-d table td{ 
+		background:#FFF;
+		width:400px;
+		height:100px;
+	
+	} 
+	/* css注释：设置table背景为红色，td背景为白色 */ 
+</style>
+<script>
+	
+	var pai='{"allpai":['+
+		'{"code": "1","name": "东","size":"4"}, {"code": "2","name": "南"},{"code": "3","name": "西"}, {"code": "4","name": "北"}, {"code": "5","name": "中"},'+
+		'{"code": "6","name": "发"}, {"code": "7","name": "白"},{"code": "8","name": "1T"}, {"code": "9","name": "2T"},{"code": "10","name": "3T"},'+
+		'{"code": "11","name": "4T"}, {"code": "12","name": "5T"},{"code": "13","name": "6T"}, {"code": "14","name": "7T"},{"code": "15","name": "8T"},'+
+		'{"code": "16","name": "9T"},{"code": "17","name": "1B"}, {"code": "18","name": "2B"},{"code": "19","name": "3B"}, {"code": "20","name": "4B"},'+
+		'{"code": "21","name": "5B"},{"code": "22","name": "6B"}, {"code": "23","name": "7B"},{"code": "24","name": "8B"}, {"code": "25","name": "9B"},'+
+		'{"code": "26","name": "1W"}, {"code": "27","name": "2W"},{"code": "28","name": "3W"}, {"code": "29","name": "4W"}, {"code": "30","name": "5W"},'+
+		'{"code": "31","name": "6W"}, {"code": "32","name": "7W"},{"code": "33","name": "8W"}, {"code": "34","name": "9W"}'+
+	']}';
+	var paiCode=["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33"]; 
+	var paijson = JSON.parse(pai);
+	var dongArr=[],nanArr=[],xiArr=[],beiArr=[],randomNUM;
+	var dongchupai=true;nanchupai=true;xichupai=true;beichupai=true;
+	var $=jQuery.noConflict();
+	$(function () {
+		
+		//随机取得数组中的一个
+		//var Arr = ["a","b","c","d"]; 
+		
+		//console.log(randomNUM); 
+		//console.log(paiCode[randomNUM]); 
+		//console.log(paijson.allpai[randomNUM].name);
+		//初始化13张牌
+		for(var i=0;i<4;i++){
+			for(var j=0;j<13;j++){
+				randomNUM = Math.floor(Math.random() * paiCode.length + 1)-1; 
+				if(i==0){
+					dongArr.push(paijson.allpai[randomNUM].name);
+				}else if(i==1){
+					nanArr.push(paijson.allpai[randomNUM].name);
+				}else if(i==2){
+					xiArr.push(paijson.allpai[randomNUM].name);
+				}else if(i==3){
+					beiArr.push(paijson.allpai[randomNUM].name);
+				}
+				paijson.allpai[randomNUM].size=paijson.allpai[randomNUM].size-1;
+				if(paijson.allpai[randomNUM].size==0){
+					paiCode.splice(randomNUM,1);
+					//delete paiCode[1] 
+				}
+			}
+		}
+		//第14张
+		if(dongArr.length==13){
+			randomNUM = Math.floor(Math.random() * paiCode.length + 1)-1; 
+			dongArr.push(paijson.allpai[randomNUM].name);
+		}
+		$('.paisum').html(83);
+        //利用js中的sort方法
+        //dongArr.sort(sortprice);
+        //打印排序后的数据到控制台
+        console.log(dongArr);
+		
+		
+		$('.dong').html(createpaiHtml(paixu(dongArr),1));
+		$('.nan').html(createpaiHtml(paixu(nanArr),0));
+		$('.xi').html(createpaiHtml(paixu(xiArr),0));
+		$('.bei').html(createpaiHtml(paixu(beiArr),0));
+		
+	})
+	
+	function paixu(obj){
+		//var zhcn=JSON.parse('{"szzw":[{"sz":"1","zw":"一"},{"sz":"2","zw":"二"},{"sz":"3","zw":"三"},{"sz":"4","zw":"四"},{"sz":"5","zw":"五"},{"sz":"6","zw":"六"},{"sz":"7","zw":"七"},{"sz":"8","zw":"八"},{"sz":"9","zw":"九"}]}');
+		var zhcn=[{'1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九'}]
+		var dongB=[],dongT=[],dongW=[],zi=[],paixuArr=[];
+		var zw="";
+		for(var j=0;j<obj.length;j++){
+		
+			if(obj[j].indexOf('W') !=-1){
+				zw=obj[j].split('W')[0];
+				dongW.push(zw);
+			}else if(obj[j].indexOf('T') !=-1){
+				zw=obj[j].split('T')[0];
+				dongT.push(zw);
+			}else if(obj[j].indexOf('B') !=-1){
+				zw=obj[j].split('B')[0];
+				dongB.push(zw);
+			}else{
+				zi.push(obj[j]);
+			}	
+		}
+		dongW.sort();
+		dongT.sort();
+		dongB.sort();
+		zi.sort(function(a,b){
+			var f = '东南西北中发白';
+			var index1 = f.indexOf(a);
+			var index2 = f.indexOf(b);
+			if (index1 > index2) {
+				return 1;
+			} else if(index1 < index2) {
+				return -1;
+			}
+			return ;
+		});
+		for(w=0;w<dongW.length;w++){
+			paixuArr.push(zhcn[0][dongW[w]]+'W');
+		}
+		for(t=0;t<dongT.length;t++){
+			paixuArr.push(zhcn[0][dongT[t]]+'T');
+		}
+		for(b=0;b<dongB.length;b++){
+			paixuArr.push(zhcn[0][dongB[b]]+'B');
+		}for(z=0;z<zi.length;z++){
+			paixuArr.push(zi[z]);
+		}
+		return paixuArr;
+	}
+	
+	function createpaiHtml(obj,canclick){
+		var dongHtml='';
+		for(k=0;k<obj.length;k++){
+			if(canclick==1){
+				dongHtml=dongHtml+'<span onmouseover="addcolor(this)" onmouseout="removecolor(this)" onclick="chuPai(this)">'+obj[k]+'</span>';
+			}else{
+				dongHtml=dongHtml+'<span onmouseover="addcolor(this)" onmouseout="removecolor(this)" >'+obj[k]+'</span>';
+			}
+		}
+		//dongHtml=dongHtml+'';
+		return dongHtml;
+	}
+	function addcolor(obj){
+		$(obj).addClass("paiColor");
+	}
+	function removecolor(obj){
+		$(obj).removeClass("paiColor");
+	}
+	function chuPai(obj){
+		if(dongchupai=true){
+			$('.dongHistory').append('<span>'+$(obj).html()+'</span>')
+			$(obj).remove();
+			delOne($(obj).html(),dongArr);
+			dongchupai=false;
+			randomNUM = Math.floor(Math.random() * paiCode.length + 1)-1; 
+			nanArr.push(paijson.allpai[randomNUM].name);
+			$('.nan').html(createpaiHtml(paixu(nanArr)));
+			$('.paisum').html(parseInt($('.paisum').html())-1);
+			
+		}
+	}
+	function delOne(obj,arr){
+		var index = arr.indexOf(obj);
+		arr.splice(index,1);
+	}
+	function faPai(){
+		
+	}
+	
+</script>
+</head>
+<body>
+	<div class="table-d">
+		<table style="width:1200px;height:700px;" border="0" cellspacing="1" cellpadding="0">
+			<tr>
+				<td></td>
+				<td></td>
+				<td style="">xi</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td></td>
+				<td></td>
+				<td class="xi" style="text-align:center;">xi</td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td></td>
+				<td></td>
+				<td  class="xiHistory"></td>
+				<td></td>
+				<td></td>
+			</tr>
+			<tr>
+				<td class="nan" style="text-align:center;">nan</td>
+				<td class="nanHistory"></td>
+				<td class="paisum" style="text-align: center;"></td>
+				<td class="beiHistory"></td>
+				<td class="bei" style="text-align:center;">bei</td>
+			</tr>
+			<tr>
+				<td></td>
+
+				<td class="dongHistory"></td>
+
+				<td></td>
+			</tr>
+			<tr>
+				<td></td>
+
+				<td style="text-align: right;">1</td>
+
+				<td></td>
+			</tr>
+			<tr>
+				<td></td>
+
+				<td class="dong" style="text-align:center;">dong</td>
+
+				<td></td>
+			</tr>
+		</table>
+	</div>
+</body>
+</html>
