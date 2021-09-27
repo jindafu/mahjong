@@ -144,7 +144,7 @@
 		var dongHtml='';
 		for(k=0;k<obj.length;k++){
 			if(canclick==1){
-				dongHtml=dongHtml+'<span onmouseover="addcolor(this)" onmouseout="removecolor(this)" onclick="chuPai(this,direction)">'+obj[k]+'</span>';
+				dongHtml=dongHtml+'<span onmouseover="addcolor(this)" onmouseout="removecolor(this)" onclick="chuPai(this,\''+direction+'\')">'+obj[k]+'</span>';
 			}else{
 				dongHtml=dongHtml+'<span onmouseover="addcolor(this)" onmouseout="removecolor(this)" >'+obj[k]+'</span>';
 			}
@@ -188,9 +188,10 @@
 			}
 			if(objCount == 2){
 				beipenggangHtml=$(".beipenggang").html();
-				$(".beipenggang").html(beipenggangHtml+" | " +obj+obj+obj;
+				$(".beipenggang").html(beipenggangHtml+" | " +obj+obj+obj);
 				var chupaiHistory=$("."+direction+"History").html();
-				---------------------------------chupaiHistory.replace(obj,"");//去掉已经打出的牌，因为被碰了
+				//去掉已经打出的牌，因为被碰了
+				$('.dongHistory').find('span').last().remove();
 				delOne(obj,beiArr);
 				delOne(obj,beiArr);
 			}else if(objCount == 3){
@@ -212,7 +213,7 @@
 	
 	function getRandomNUM(){
 		randomNUM=doRandomNUM();
-
+		console.log("getRandomNUM() =================="+randomNUM);
 		if(!!paiCode && paiCode.indexOf(randomNUM) == -1){
 			console.log("randomNUM==-1 =================="+randomNUM);
 			while(paiCode.indexOf(randomNUM) == -1){
@@ -282,7 +283,7 @@
 			<tr>
 				<td></td>
 				<td></td>
-				<td class="dongpenggang" style="text-align: right;">1</td>
+				<td class="dongpenggang" style="text-align: right;"></td>
 				<td ></td>
 				<td></td>
 			</tr>
