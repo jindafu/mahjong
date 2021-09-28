@@ -16,8 +16,7 @@
 	.table-d table td{ 
 		background:#FFF;
 		width:400px;
-		height:100px;
-	
+		height:100px;	
 	} 
 	/* css注释：设置table背景为红色，td背景为白色 */ 
 </style>
@@ -33,7 +32,7 @@
 		'{"code": "31","name": "6W","size":"4"}, {"code": "32","name": "7W","size":"4"},{"code": "33","name": "8W","size":"4"}, {"code": "34","name": "9W","size":"4"}'+
 	']}';
 	//var paiCode=["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33"]; 
-	var paiCode="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,";
+	var paiCode=",0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,";
 	var paijson = JSON.parse(pai);
 	var dongArr=[],nanArr=[],xiArr=[],beiArr=[],randomNUM;
 	var dongchupai=true;nanchupai=true;xichupai=true;beichupai=true;
@@ -194,6 +193,7 @@
 				$('.dongHistory').find('span').last().remove();
 				delOne(obj,beiArr);
 				delOne(obj,beiArr);
+				$(".beipenggang").
 			}else if(objCount == 3){
 			
 			}else{
@@ -213,19 +213,19 @@
 	
 	function getRandomNUM(){
 		randomNUM=doRandomNUM();
-		console.log("getRandomNUM() =================="+randomNUM);
-		if(!!paiCode && paiCode.indexOf(randomNUM) == -1){
-			console.log("randomNUM==-1 =================="+randomNUM);
-			while(paiCode.indexOf(randomNUM) == -1){
-				randomNUM=doRandomNUM();
-				console.log("randomNUM==dowhile =================="+randomNUM);
-			} 	
-			return randomNUM;
-		}else{
-			console.log("randomNUM=================="+randomNUM+"--"+paijson.allpai[randomNUM].name+"--"+paijson.allpai[randomNUM].code+"--"+paijson.allpai[randomNUM].size);
-			return randomNUM;
-		}
-		
+		if(!!paiCode){
+			if(paiCode.indexOf(","+randomNUM+",") == -1){
+				console.log("randomNUM==-1 =================="+randomNUM);
+				while(paiCode.indexOf(","+randomNUM+",") == -1){
+					randomNUM=doRandomNUM();
+					console.log("randomNUM==dowhile =================="+randomNUM);
+				} 	
+				return randomNUM;
+			}else{
+				console.log("randomNUM=================="+randomNUM+"--"+paijson.allpai[randomNUM].name+"--code:"+paijson.allpai[randomNUM].code+"--"+paijson.allpai[randomNUM].size);
+				return randomNUM;
+			}
+		}		
 	}
 	function doRandomNUM(){
 		randomNUM =Math.floor(Math.random() * 34); 	
@@ -237,7 +237,8 @@
 		if(paijson.allpai[randomNUM].size==0){
 			//paiCode.splice(randomNUM,1);
 			//delete paiCode[1] 
-			paiCode=paiCode.replace(paijson.allpai[randomNUM].code+",","");
+			console.log("randomNUM=================="+randomNUM+";paijson.allpai[randomNUM].size =================="+paijson.allpai[randomNUM].size);
+			paiCode=paiCode.replace(randomNUM+",","");
 		}
 	}
 </script>
