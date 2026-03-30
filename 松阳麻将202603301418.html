@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>松阳麻将 - 补杠与不搭判定修正版</title>
+    <style>
+        :root { --soul-gold: #ceb07e; --jade-green: #1a3c34; --tile-w: 30px; --tile-h: 42px; --win-red: #ff4d4d; --draw-blue: #4a90e2; }
+        body, html { margin: 0; padding: 0; height: 100vh; width: 100vw; background: radial-gradient(circle, #2d5a4c 0%, #1a3c34 100%); overflow: hidden; font-family: "STKaiti", "Microsoft YaHei", serif; }
+        .player-container { position: absolute; display: flex; align-items: flex-end; justify-content: center; }
+        
+        #area-0 { bottom: 25px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+        #area-2 { top: 25px; left: 50%; transform: translateX(-50%) rotate(180deg); }
+        #area-1 { right: 30px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+        #area-3 { left: 30px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+
+        .tile { width: 50px; height: 68px; background: #fffdf5; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2rem; position: relative; box-shadow: 0 4px 0 #ccc; border: 1.5px solid #ddd; cursor: pointer; }
+        .tile.tile-sm { width: var(--tile-w); height: var(--tile-h); font-size: 1.2rem; cursor: default; box-shadow: 0 2px 0 #bbb; }
+        .is-flipped { background: linear-gradient(135deg, #2a5040, #1a3c34) !important; color: transparent !important; border: 1px solid #1a3026 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 0 2px 0 #111 !important; }
+        .is-last-draw { margin-left: 25px !important; border: 3px solid var(--draw-blue) !important; box-shadow: 0 0 20px var(--draw-blue) !important; transform: translateY(-12px); }
+        .global-last-discard { border: 2.5px solid var(--win-red) !important; box-shadow: 0 0 15px var(--win-red) !important; }
+        .is-bao { background: #fffde7 !important; border-color: var(--soul-gold) !important; }
+        .is-bao::after { content: '财'; position: absolute; top: 0; left: 0; background: var(--soul-gold); color: #630; font-size: 10px; padding: 1px 2px; font-weight: bold; border-radius: 0 0 4px 0; }
+        
+        .river { position: absolute; display: grid; grid-template-columns: repeat(6, var(--tile-w)); gap: 5px; z-index: 50; }
+        .r-bottom { bottom: 195px; left: 50%; transform: translateX(-50%); }
+        .r-top { top: 135px; left: 50%; transform: translateX(-50%) rotate(180deg); }
+        .r-right { right: 30%; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
+        .r-left { left: 30%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+
+        #action-panel { display:none; position:absolute; bottom:230px; left:50%; transform:translateX(-50%); z-index:2000; text-align:center; min-width: 450px; }
+        .action-btn { padding: 12px 35px; border-radius: 50px; color: white; border: 2px solid var(--soul-gold); cursor: pointer; font-weight: bold; font-size: 20px; background: rgba(26, 60, 52, 0.95); margin: 0 10px; }
+        .btn-hu { background: #d63031 !important; border-color: #ff7675 !important; }
+
+        #result-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
+        .res-card { background: var(--jade-green); padding: 30px; border-radius: 20px; border: 3px solid var(--soul-gold); text-align: center; color: white; width: 850px; }
+        .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
+        .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
+    </style>
+</head>
+<body>
+<div id="game-stage">
+    <div class="info-box" style="position:fixed; top:20px; left:20px; z-index:200; background:rgba(0,0,0,0.6); padding:15px; border-radius:8px; border:1px solid var(--soul-gold); color:white; text-align:center;">
+        <div id="bao-display" class="tile tile-sm is-bao" style="margin:0 auto 10px">?</div>
+        <div>剩余牌: <span id="deck-count">0</span></div>
+    </div>
+    <div id="river-0" class="river r-bottom"></div><div id="river-1" class="river r-right"></div>
+    <div id="river-2" class="river r-top"></div><div id="river-3" class="river r-left"></div>
+    <div id="area-0" class="player-container"><div id="melds-0" style="display:flex;gap:12px;margin-right:20px;"></div><div id="hand-0" style="display:flex;"></div></div>
+    <div id="area-1" class="player-container"><div id="melds-1" style="display:flex;gap:12px;margin-right:20px;"></div><div id="hand-1" style="display:flex;"></div></div>
+    <div id="area-2" class="player-container"><div id="melds-2" style="display:flex;gap:12px;margin-right:20px;"></div><div id="hand-2" style="display:flex;"></div></div>
+    <div id="area-3" class="player-container"><div id="melds-3" style="display:flex;gap:12px;margin-right:20px;"></div><div id="hand-3" style="display:flex;"></div></div>
+    <div id="action-panel"></div>
+    <div id="result-screen">
+        <div class="res-card">
+            <h1 id="res-title" style="color:var(--soul-gold); font-size: 2.5rem; margin:0;"></h1>
+            <div id="res-melds" class="res-row"></div>
+            <div id="res-hand" class="res-row"></div>
+            <div id="res-yaku-list" style="margin:15px 0; font-size:1.2rem; display: flex; justify-content: center; gap: 20px; color: #fff;"></div>
+            <div style="font-size: 3.5rem; color:var(--soul-gold); font-weight:bold;"><span id="res-total">0</span> 番</div>
+            <button class="action-btn" onclick="init()" style="margin-top:20px; width:60%">新对局</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const ICONS = {'m':['🀇','🀈','🀉','🀊','🀋','🀌','🀍','🀎','🀏'],'s':['🀐','🀑','🀒','🀓','🀔','🀕','🀖','🀗','🀘'],'p':['🀙','🀚','🀛','🀜','🀝','🀞','🀟','🀠','🀡'],'z':['🀀','🀁','🀂','🀃','🀄','🀅','🀆']};
+let game = { deck: [], bao: '', hands:[[],[],[],[]], melds:[[],[],[],[]], rivers:[[],[],[],[]], turn:0, winner:-1, lastPlayer:-1, lastTile:null, isTrueDraw:false, isGangState:false };
+
+function createTileDOM(t, isSmall, isBao, isFlip) {
+    const d = document.createElement('div');
+    d.className = `tile ${isSmall?'tile-sm':''} ${isBao?'is-bao':''} ${isFlip?'is-flipped':''}`;
+    if(!isFlip) d.innerText = ICONS[t[1]][parseInt(t[0])-1];
+    return d;
+}
+
+function createMeldGroup(m, reveal = false) {
+    const group = document.createElement('div');
+    group.className = 'res-meld-group';
+    m.tiles.forEach((t, idx) => {
+        let isFlip = false;
+        if (m.type === 'PONG' || m.type === 'GANG') {
+            if (m.fromRel === 0 && idx === 0) isFlip = true;
+            if (m.fromRel === 1 && idx === 1) isFlip = true;
+            if (m.fromRel === 2 && idx === 2) isFlip = true;
+        } else if (m.type === 'ANGANG' && !reveal) {
+            if (idx === 1 || idx === 2) isFlip = true;
+        }
+        group.appendChild(createTileDOM(t, true, t===game.bao, isFlip));
+    });
+    return group;
+}
+
+function sortHand(hand) {
+    const order = {'m':0, 's':1, 'p':2, 'z':3};
+    return hand.sort((a, b) => {
+        if(a === game.bao) return -1; if(b === game.bao) return 1;
+        if(a[1] !== b[1]) return order[a[1]] - order[b[1]];
+        return parseInt(a[0]) - parseInt(b[0]);
+    });
+}
+
+function render(reveal = false) {
+    document.getElementById('deck-count').innerText = Math.max(0, game.deck.length - 20);
+    for(let i=0; i<4; i++) {
+        const hEl = document.getElementById(`hand-${i}`); hEl.innerHTML = '';
+        game.hands[i].forEach((t, idx) => {
+            const isSelf = (i === 0), show = isSelf || reveal;
+            const d = createTileDOM(t, !isSelf, (show && t===game.bao), !show);
+            if(isSelf && game.isTrueDraw && idx === game.hands[0].length-1) d.classList.add('is-last-draw');
+            if(isSelf && game.winner === -1 && game.turn === 0) d.onclick = () => discard(idx);
+            hEl.appendChild(d);
+        });
+        const rEl = document.getElementById(`river-${i}`); rEl.innerHTML = '';
+        game.rivers[i].forEach((t, idx) => {
+            const isLast = (i === game.lastPlayer && idx === game.rivers[i].length - 1);
+            const d = createTileDOM(t, true, t===game.bao, false);
+            if(isLast) d.classList.add('global-last-discard');
+            rEl.appendChild(d);
+        });
+        const mEl = document.getElementById(`melds-${i}`); mEl.innerHTML = '';
+        game.melds[i].forEach(m => mEl.appendChild(createMeldGroup(m, reveal)));
+    }
+}
+
+function discard(idx) {
+    document.getElementById('action-panel').style.display = 'none';
+    game.isGangState = false; 
+    
+    let hand = game.hands[0];
+    let t = hand[idx];
+
+    // 逻辑判定：如果是财神
+    if (t === game.bao) {
+        // 判定是否符合“飘财”：必须是爆头听牌状态打出财神
+        const checkRes = calculateYaku(hand, game.melds[0], game.isGangState);
+        if (checkRes.total > 0 && checkRes.list.some(x => x.name.includes("财神头"))) {
+            game.piaoCounts[0]++; // 连飘层数增加
+        }
+        // 规则3：只要打出财神，无论是否听牌，本轮强制锁定三家
+        game.isActionLockedByPiao = true;
+    } else {
+        // 规则2：如果打出的不是财神，立即解除自己的飘财判定和全局锁定
+        game.piaoCounts[0] = 0;
+        game.isActionLockedByPiao = false;
+    }
+
+    // 执行出牌
+    hand.splice(idx, 1);
+    game.isTrueDraw = false; game.rivers[0].push(t); game.lastPlayer = 0; game.lastTile = t;
+    sortHand(game.hands[0]); render();
+    processDiscards(t, 0);
+}
+
+// --- 精准修改 processDiscards 函数 ---
+function processDiscards(tile, fromIdx) {
+    let requests = [];
+    for(let i=0; i<4; i++) {
+        if(i === fromIdx) continue;
+        let acts = [];
+        
+        // --- 核心拦截：如果全局锁定开启，跳过吃碰杠判定 ---
+        if (!game.isActionLockedByPiao) {
+            let count = game.hands[i].filter(x => x === tile && x !== game.bao).length;
+            if(count === 3) acts.push('GANG');
+            if(count >= 2) acts.push('PONG');
+            if((fromIdx + 1) % 4 === i) {
+                let sets = checkChiOptions(i, tile);
+                if(sets.length > 0) acts.push('CHI');
+            }
+        }
+        
+        // 允许截胡（如果规则允许财神被胡，否则这里也会被 isActionLockedByPiao 过滤）
+        // if(checkCanHu(i, tile)) acts.push('HU'); 
+
+        if(acts.length > 0) requests.push({pIdx: i, acts: acts});
+    }
+    if(requests.length === 0) nextTurn((fromIdx + 1) % 4);
+    else handlePrioritizedRequests(requests, tile, fromIdx);
+}
+
+function handlePrioritizedRequests(requests, tile, fromIdx) {
+    let pgReqs = requests.filter(r => r.acts.includes('PONG') || r.acts.includes('GANG'));
+    let pPG = pgReqs.find(r => r.pIdx === 0);
+    if (pPG) {
+        showActions(pPG.acts, tile, fromIdx, (d) => {
+            if(d === 'PASS') {
+                let aiPG = pgReqs.find(r => r.pIdx !== 0);
+                if(aiPG) executeAIAction(aiPG, tile, fromIdx);
+                else checkChiPhase(requests, tile, fromIdx);
+            } else handleAction(d, 0, tile, fromIdx);
+        });
+    } else if (pgReqs.length > 0) {
+        executeAIAction(pgReqs[0], tile, fromIdx);
+    } else {
+        checkChiPhase(requests, tile, fromIdx);
+    }
+}
+
+function checkChiPhase(requests, tile, fromIdx) {
+    let chiReqs = requests.filter(r => r.acts.includes('CHI'));
+    let pChi = chiReqs.find(r => r.pIdx === 0);
+    if (pChi) {
+        showActions(['CHI'], tile, fromIdx, (d) => {
+            if(d === 'PASS') nextTurn((fromIdx + 1) % 4);
+            else handleAction(d, 0, tile, fromIdx);
+        });
+    } else if (chiReqs.length > 0) {
+        executeAIAction(chiReqs[0], tile, fromIdx);
+    } else {
+        nextTurn((fromIdx + 1) % 4);
+    }
+}
+
+function executeAIAction(req, tile, fromIdx) {
+    setTimeout(() => {
+        if (req.acts.includes('GANG')) handleAction('GANG', req.pIdx, tile, fromIdx);
+        else if (req.acts.includes('PONG')) handleAction('PONG', req.pIdx, tile, fromIdx);
+        else if (req.acts.includes('CHI')) {
+            let sets = checkChiOptions(req.pIdx, tile);
+            handleAction({type: 'CHI', set: sets[0]}, req.pIdx, tile, fromIdx);
+        }
+    }, 400);
+}
+
+function showActions(acts, tile, fromIdx, callback) {
+    let p = document.getElementById('action-panel');
+    p.innerHTML = ''; p.style.display = 'block';
+    acts.forEach(act => {
+        let b = document.createElement('button'); b.className = 'action-btn ' + (act === 'HU' ? 'btn-hu' : '');
+        b.innerText = act==='CHI'?'吃':(act==='PONG'?'碰':(act==='GANG'?'杠':'胡'));
+        b.onclick = () => {
+            if (act === 'CHI') {
+                let sets = checkChiOptions(0, tile);
+                if (sets.length === 1) { p.style.display='none'; callback({type:'CHI', set:sets[0]}); }
+                else renderChiOptions(sets, tile, fromIdx, callback);
+            } else { p.style.display='none'; callback(act); }
+        };
+        p.appendChild(b);
+    });
+    let pass = document.createElement('button'); pass.className = 'action-btn'; pass.innerText = '过';
+    pass.onclick = () => { p.style.display='none'; callback('PASS'); };
+    p.appendChild(pass);
+}
+
+function renderChiOptions(sets, tile, fromIdx, callback) {
+    let p = document.getElementById('action-panel'); p.innerHTML = '';
+    sets.forEach(set => {
+        let b = document.createElement('button'); b.className = 'action-btn';
+        b.innerText = set.map(t => ICONS[t[1]][parseInt(t[0])-1]).join('');
+        b.onclick = () => { p.style.display='none'; callback({type:'CHI', set:set}); };
+        p.appendChild(b);
+    });
+}
+
+function handleAction(decision, pIdx, tile, fromIdx) {
+    let type = typeof decision === 'string' ? decision : decision.type;
+    let h = game.hands[pIdx];
+    if (type === 'HU') { handleWin(pIdx); return; }
+    
+    let rel = -1;
+    if (fromIdx !== -1) {
+        let diff = (fromIdx + 4 - pIdx) % 4;
+        if (diff === 3) rel = 0; else if (diff === 2) rel = 1; else if (diff === 1) rel = 2;
+    }
+
+    if (type === 'PONG') {
+        h.splice(h.indexOf(tile), 1); h.splice(h.indexOf(tile), 1);
+        game.melds[pIdx].push({ type: 'PONG', tiles: [tile, tile, tile], fromRel: rel });
+    } else if (type === 'GANG') {
+        let pongMeld = game.melds[pIdx].find(m => m.type === 'PONG' && m.tiles[0] === tile);
+        
+        // --- 精准修改：补杠触发抢杠判定 ---
+        if (pongMeld) {
+            // 记录当前尝试补杠的信息，用于结算
+            game.isQiangGangAttempt = { tile: tile, shooter: pIdx };
+            
+            // 检查其余三家是否有人能抢杠
+            let qgRequests = [];
+            for (let i = 0; i < 4; i++) {
+                if (i === pIdx) continue;
+                // 核心规则：抢杠必须是听这张牌。逻辑同常规胡判定，但需排除“爆头”
+                // 使用临时手牌加入这张杠牌进行判定
+                let tempHand = [...game.hands[i], tile];
+                let res = calculateYaku(tempHand, game.melds[i], false); 
+                
+                // 判定：能胡 且 不是爆头 (抢杠不支持爆头)
+                if (res.total > 0 && !res.list.some(x => x.name.includes("财神头"))) {
+                    qgRequests.push(i);
+                }
+            }
+
+            if (qgRequests.length > 0) {
+                // 触发抢杠胡：多人可同时胡，按顺序或同时处理
+                // 这里简化处理：直接让第一个能胡的人胡（或循环 handleWin）
+                qgRequests.forEach(winIdx => {
+                    game.isQiangGangEvent = true; // 标记当前是抢杠事件
+                    handleWin(winIdx);
+                });
+                return; // 中断杠牌流程
+            }
+
+            // 无人抢杠，继续执行原补杠逻辑
+            pongMeld.type = 'GANG'; pongMeld.tiles.push(tile);
+            h.splice(h.indexOf(tile), 1);
+        } else {
+            // 暗杠或大明杠逻辑保持不变
+            while(h.includes(tile)) h.splice(h.indexOf(tile), 1);
+            game.melds[pIdx].push({ type: fromIdx===-1?'ANGANG':'GANG', tiles: [tile, tile, tile, tile], fromRel: rel });
+            if (fromIdx !== -1) game.rivers[fromIdx].pop();
+        }
+        
+        game.isGangState = true; 
+        game.isTrueDraw = false;
+        render(); setTimeout(() => nextTurn(pIdx), 600); return;
+    }else if (type === 'CHI') {
+        decision.set.forEach(t => { if(t !== tile) h.splice(h.indexOf(t), 1); });
+        game.melds[pIdx].push({ type: 'CHI', tiles: [...decision.set].sort(), fromRel: -1 });
+    }
+    if (tile && fromIdx !== -1 && type !== 'GANG') game.rivers[fromIdx].pop();
+    game.turn = pIdx; sortHand(h); render();
+    if(pIdx !== 0) setTimeout(() => aiPlay(pIdx), 500);
+}
+
+// --- 仅精准替换 nextTurn 函数中的 AI 决策部分 ---
+
+function nextTurn(pIdx) {
+    game.turn = pIdx;
+	// 当轮到触发飘财的人再次摸牌时，解锁全局动作
+    if (game.isActionLockedByPiao && pIdx === game.piaoTriggerIdx) {
+        game.isActionLockedByPiao = false;
+        game.piaoTriggerIdx = -1;
+    }
+    if(game.deck.length <= 20) { alert('荒庄'); init(); return; }
+    let t = game.deck.pop(); game.hands[pIdx].push(t);
+    game.isTrueDraw = (pIdx === 0); render();
+    
+    setTimeout(() => {
+        const res = calculateYaku(game.hands[pIdx], game.melds[pIdx], game.isGangState);
+        let acts = []; if(res.total > 0) acts.push('HU');
+        
+        let counts = {}; game.hands[pIdx].forEach(x => { if(x!==game.bao) counts[x]=(counts[x]||0)+1; });
+        for(let k in counts) if(counts[k]===4) acts.push('GANG');
+        let buGangTiles = game.hands[pIdx].filter(tile => tile !== game.bao && game.melds[pIdx].some(m => m.type === 'PONG' && m.tiles[0] === tile));
+        if(buGangTiles.length > 0) acts.push('GANG');
+
+        if(pIdx === 0) {
+            if(acts.length > 0) showActions([...new Set(acts)], null, -1, (d) => {
+                if(d==='HU') handleAction('HU', 0);
+                else if(d==='GANG') {
+                    let gTile = buGangTiles.length > 0 ? buGangTiles[0] : Object.keys(counts).find(k=>counts[k]===4);
+                    handleAction('GANG', 0, gTile, -1);
+                }
+            });
+        } else {
+            let shouldHu = acts.includes('HU');
+            
+            if (shouldHu) {
+                if (res.list.some(x => x.name.includes("财神头"))) {
+                    handleAction('HU', pIdx); return;
+                }
+                
+                let bs = game.hands[pIdx].filter(x => x === game.bao).length;
+                if (game.deck.length > 25 && bs >= 1) {
+                    let tempHand = [...game.hands[pIdx]];
+                    for (let i = 0; i < tempHand.length; i++) {
+                        if (tempHand[i] === game.bao) continue;
+                        let testHand = [...tempHand];
+                        testHand.splice(i, 1); 
+                        
+                        let testBs = testHand.filter(x => x === game.bao).length;
+                        let success = false;
+                        
+                        // AI 尝试白板的多重可能
+                        if (game.bao === '7z') {
+                            let others = testHand.filter(x => x !== game.bao).sort();
+                            if (canDiv(others, testBs - 1)) success = true;
+                        } else {
+                            let baseOthers = testHand.filter(x => x !== game.bao && x !== '7z');
+                            let count7z = testHand.filter(x => x === '7z').length;
+                            for (let handBaoCount = 0; handBaoCount <= count7z; handBaoCount++) {
+                                let currentOthers = [...baseOthers];
+                                for(let j=0; j<handBaoCount; j++) currentOthers.push(game.bao);
+                                for(let j=0; j<(count7z - handBaoCount); j++) currentOthers.push('7z');
+                                currentOthers.sort();
+                                if (canDiv(currentOthers, testBs - 1)) { success = true; break; }
+                            }
+                        }
+
+                        if (success) {
+                            console.log(`AI放弃自摸，改听爆头，切掉: ${tempHand[i]}`);
+                            game.hands[pIdx].splice(i, 1);
+                            let discTile = tempHand[i];
+                            game.rivers[pIdx].push(discTile); game.lastPlayer = pIdx; game.lastTile = discTile;
+                            sortHand(game.hands[pIdx]); render();
+                            setTimeout(() => processDiscards(discTile, pIdx), 400);
+                            return; 
+                        }
+                    }
+                }
+                handleAction('HU', pIdx); 
+            } else if(acts.includes('GANG')) {
+                let gTile = buGangTiles.length > 0 ? buGangTiles[0] : Object.keys(counts).find(k=>counts[k]===4);
+                handleAction('GANG', pIdx, gTile, -1);
+            } else {
+                game.isGangState = false; aiPlay(pIdx);
+            }
+        }
+    }, 600);
+}
+
+// --- 修改 aiPlay 函数 (AI也要支持飘财逻辑) ---
+function aiPlay(pIdx) {
+    let h = game.hands[pIdx];
+    // AI简单逻辑：如果有两个财神且已听牌，随机打出一张财神进入飘财
+    let baoIdx = h.indexOf(game.bao);
+    if (baoIdx !== -1) {
+        const checkRes = calculateYaku(h, game.melds[pIdx], game.isGangState);
+        if (checkRes.total > 0 && checkRes.list.some(x => x.name.includes("财神头"))) {
+            // AI 决定飘财
+            let t = h.splice(baoIdx, 1)[0];
+            game.piaoCounts[pIdx]++;
+            game.rivers[pIdx].push(t); game.lastPlayer = pIdx; game.lastTile = t;
+            sortHand(h); render();
+            setTimeout(() => processDiscards(t, pIdx), 400);
+            return;
+        }
+    }
+    
+    // 原有常规出牌逻辑...
+    let playable = h.map((t,i) => t !== game.bao ? i : null).filter(x => x !== null);
+    let idx = playable.length > 0 ? playable[Math.floor(Math.random()*playable.length)] : 0;
+    let t = h.splice(idx, 1)[0];
+    // AI 出牌时的判定
+    if (t === game.bao) {
+        // 如果AI符合飘财逻辑（此处简化，仅判断打出的是否是财神）
+        game.isActionLockedByPiao = true;
+        // 如果要AI也精细判断飘财番型，需在此调用 calculateYaku
+    } else {
+        game.piaoCounts[pIdx] = 0;
+        game.isActionLockedByPiao = false;
+    }
+    game.rivers[pIdx].push(t); game.lastPlayer = pIdx; game.lastTile = t;
+    sortHand(h); render();
+    setTimeout(() => processDiscards(t, pIdx), 400);
+}
+
+// ---------------- 判定核心 ----------------
+
+function calculateYaku(hand, melds, isGang) {
+    // 如果财神刚好就是白板，不需要双重身份，直接走原始逻辑
+    if (game.bao === '7z') {
+        let bs = hand.filter(x => x === game.bao).length;
+        let others = hand.filter(x => x !== game.bao).sort();
+        return calculateYakuCore(others, bs, melds, isGang, hand.length);
+    }
+
+    let baseOthers = hand.filter(x => x !== game.bao && x !== '7z');
+    let bs = hand.filter(x => x === game.bao).length;
+    let count7z = hand.filter(x => x === '7z').length;
+
+    // 找出包含了白板的副露（碰/杠）
+    let melds7zIndices = [];
+    melds.forEach((m, idx) => { if (m.tiles[0] === '7z') melds7zIndices.push(idx); });
+
+    let bestResult = { total: 0, list: [] };
+
+    // 穷举手牌中白板的所有身份组合
+    for (let handBaoCount = 0; handBaoCount <= count7z; handBaoCount++) {
+        let hand7zCount = count7z - handBaoCount;
+        let currentOthers = [...baseOthers];
+        for(let i=0; i<handBaoCount; i++) currentOthers.push(game.bao); // 当作财神原牌
+        for(let i=0; i<hand7zCount; i++) currentOthers.push('7z');      // 保持白板
+        currentOthers.sort();
+
+        // 穷举副露中白板的所有身份组合 (0 到 2^N)
+        let meldCombos = 1 << melds7zIndices.length;
+        for (let mask = 0; mask < meldCombos; mask++) {
+            let currentMelds = melds.map((m, idx) => {
+                if (melds7zIndices.includes(idx) && (mask & (1 << melds7zIndices.indexOf(idx)))) {
+                    return { ...m, tiles: m.tiles.map(() => game.bao) }; // 副露当作财神原牌
+                }
+                return m;
+            });
+
+            // 针对这一种组合，去算番
+            let res = calculateYakuCore(currentOthers, bs, currentMelds, isGang, hand.length);
+            // 记录番数最大的打法
+            if (res.total > bestResult.total) bestResult = res;
+        }
+    }
+    return bestResult;
+}
+
+// 剥离出的纯净版胡牌核心运算
+function calculateYakuCore(others, bs, melds, isGang, handLength) {
+    let yakus = [{name: "自摸", base: 2}];
+    let canHu = false, isBaoTou = false;
+    let isDanDiao = (handLength === 2); 
+
+    let sevenRes = (handLength === 14) ? checkSevenPairs(others, bs) : {success:false};
+    
+    if (sevenRes.success) {
+        canHu = true; yakus.push({name: "七对", mul: 2}); 
+        if (sevenRes.isBao) isBaoTou = true;
+    } else {
+        let buda = checkBuDa(others, bs, game.bao); 
+        if(buda) { 
+            canHu = true; yakus.push(buda); 
+        } else {
+            if (bs >= 2 && canDiv(others, bs - 2)) { canHu = true; isBaoTou = true; }
+            if (!canHu && bs >= 1) {
+                for (let t of [...new Set(others)]) {
+                    let temp = [...others]; temp.splice(temp.indexOf(t), 1); 
+                    if (canDiv(temp, bs - 1)) { canHu = true; isBaoTou = true; break; }
+                }
+            }
+            if (!canHu) {
+                for (let t of [...new Set(others)]) {
+                    let temp = [...others];
+                    if (temp.filter(x => x === t).length >= 2) {
+                        temp.splice(temp.indexOf(t), 2); 
+                        if (canDiv(temp, bs)) { canHu = true; break; }
+                    }
+                }
+            }
+        }
+    }
+
+    if(!canHu) return {total: 0};
+	// --- 精准新增：抢杠番型 ---
+    if (game.isQiangGangEvent) {
+        yakus.push({name: "抢杠", base: 0}); // 增加名头，不加分
+    }
+    // --- 增加飘财番型结算 ---
+    // 注意：这里需要确保能获取到当前胡牌人的索引，通常是 game.turn 或 pIdx
+    let pIdx = game.winner !== -1 ? game.winner : game.turn;
+    let piao = game.piaoCounts[pIdx];
+
+    if (piao === 1) {
+        yakus.push({name: "飘财", mul: 2});
+    } else if (piao >= 2) {
+        yakus.push({name: "双飘", mul: 4});
+    }
+    if(isBaoTou) yakus.push({name: "财神头", mul: 2});
+    if(isDanDiao) yakus.push({name: "单吊", mul: 2});
+    if(isGang) yakus.push({name: "杠开", mul: 2});
+    
+    let colorYaku = checkColors(others, melds);
+    if(colorYaku) yakus.push(colorYaku);
+    if(checkDuiDuiHu(others, bs, melds)) yakus.push({name: "四大碰", mul: 2});
+    if(bs >= 3) yakus.push({name: "三财神", mul: 2});
+
+    let total = yakus[0].base;
+    for(let i = 1; i < yakus.length; i++) if(yakus[i].mul) total *= yakus[i].mul;
+    return {list: yakus, total: total};
+}
+
+function canDiv(ts, bs) {
+    if(ts.length === 0) return bs % 3 === 0;
+    let t = ts[0], v = parseInt(t[0]), ty = t[1], count = ts.filter(x => x === t).length;
+    for(let i=0; i<=Math.min(bs, 2); i++) {
+        if(count + i >= 3) {
+            let next = [...ts]; for(let j=0; j<(3-i); j++) next.splice(next.indexOf(t), 1);
+            if(canDiv(next, bs - i)) return true;
+        }
+    }
+    if(ty !== 'z' && v <= 9) {
+        for (let bUsed=0; bUsed<=2; bUsed++) {
+            if (bUsed > bs) continue;
+            let tempNext = [...ts]; tempNext.splice(tempNext.indexOf(t), 1);
+            let t1 = (v+1)+ty, t2 = (v+2)+ty, currentB = bs, success = true;
+            [t1, t2].forEach(target => {
+                if (parseInt(target[0]) > 9) { success = false; return; }
+                let idx = tempNext.indexOf(target);
+                if (idx !== -1) tempNext.splice(idx, 1);
+                else if (currentB > 0) currentB--;
+                else success = false;
+            });
+            if (success && (bs - currentB) === bUsed) { if (canDiv(tempNext, currentB)) return true; }
+        }
+    }
+    return false;
+}
+
+// --- 仅精准替换 checkBuDa 函数 ---
+
+function checkBuDa(others, bs, bao) {
+    if([...new Set(others)].length + bs < 14) return null;
+    let isZG = true, ziTypes = new Set(), counts = {m:[], s:[], p:[]};
+    for(let t of others) {
+        let v = parseInt(t[0]), s = t[1];
+        if(s === 'z') { ziTypes.add(v); } else {
+            for(let ex of counts[s]) if(Math.abs(v-ex) < 3) return null;
+            let line = v % 3; if (line === 0) line = 3; 
+            if (counts[s].length > 0) {
+                let firstLine = counts[s][0] % 3; if (firstLine === 0) firstLine = 3;
+                if (line !== firstLine) isZG = false;
+            }
+            counts[s].push(v);
+        }
+    }
+    let totalZiKinds = ziTypes.size;
+    if (bs > 0 && bao[1] === 'z' && !ziTypes.has(parseInt(bao[0]))) totalZiKinds += 1;
+    if(totalZiKinds >= 7) return isZG ? {name:"正规七风不搭", mul:8} : {name:"七风不搭", mul:4};
+    return isZG ? {name:"正规不搭", mul:4} : {name:"不搭", mul:2};
+}
+
+// --- 1. 精准替换 checkSevenPairs 函数 (增加财神头判定支持) ---
+function checkSevenPairs(others, bs) {
+    let c = {}; others.forEach(t => c[t] = (c[t]||0)+1);
+    let singleTiles = 0;
+    for(let t in c) if(c[t] % 2 !== 0) singleTiles++;
+    return { success: (singleTiles <= bs), isBao: (bs >= 1 && singleTiles <= bs - 1) };
+}
+
+function checkDuiDuiHu(others, bs, melds) {
+    if(melds.some(m => m.type === 'CHI')) return false;
+    function onlyKezis(ts, b) {
+        if(ts.length === 0) return b % 3 === 0;
+        let t = ts[0], count = ts.filter(x => x === t).length;
+        for(let i=0; i<=Math.min(b, 2); i++) {
+            if(count + i >= 3) {
+                let next = [...ts]; for(let j=0; j<(3-i); j++) next.splice(next.indexOf(t), 1);
+                if(onlyKezis(next, b - i)) return true;
+            }
+        }
+        return false;
+    }
+    for (let t of [...new Set(others)]) {
+        let temp = [...others];
+        if (temp.filter(x => x === t).length >= 2) {
+            temp.splice(temp.indexOf(t), 2);
+            if (onlyKezis(temp, bs)) return true;
+        }
+    }
+    if (bs >= 1) {
+        for (let t of [...new Set(others)]) {
+            let temp = [...others]; temp.splice(temp.indexOf(t), 1);
+            if (onlyKezis(temp, bs - 1)) return true;
+        }
+        if (bs >= 2 && onlyKezis(others, bs - 2)) return true;
+    }
+    return false;
+}
+
+function checkColors(others, melds) {
+    let normalTiles = [...others];
+    melds.forEach(m => normalTiles.push(...m.tiles));
+    let types = new Set(normalTiles.map(t => t[1]));
+    let hasZi = types.has('z'); types.delete('z'); 
+    if (types.size === 1) return hasZi ? {name: "混一色", mul: 2} : {name: "清一色", mul: 4};
+    if (types.size === 0) return {name: "清一色", mul: 4}; 
+    return null;
+}
+
+function checkChiOptions(pIdx, t) {
+    if(!t || t[1]==='z' || t===game.bao) return [];
+    let v=parseInt(t[0]), s=t[1], h=game.hands[pIdx], res=[];
+    let has = (n) => h.includes(n+s) && (n+s)!==game.bao;
+    if(has(v-2) && has(v-1)) res.push([(v-2)+s, (v-1)+s, t]);
+    if(has(v-1) && has(v+1)) res.push([(v-1)+s, t, (v+1)+s]);
+    if(has(v+1) && has(v+2)) res.push([t, (v+1)+s, (v+2)+s]);
+    return res;
+}
+
+function handleWin(pIdx) {
+    game.winner = pIdx; 
+	// 如果是抢杠胡，把被抢的那张牌临时塞进赢家手牌以便渲染和计算
+    if (game.isQiangGangEvent && game.isQiangGangAttempt) {
+        game.hands[pIdx].push(game.isQiangGangAttempt.tile);
+    }
+	render(true);
+    const res = calculateYaku(game.hands[pIdx], game.melds[pIdx], game.isGangState);
+    document.getElementById('res-title').innerText = (pIdx===0?"玩家":"AI") + (res.list.some(x=>x.name.includes("财神头"))?" 财神头!!":" 胡牌");
+    const mEl = document.getElementById('res-melds'); mEl.innerHTML = '';
+    game.melds[pIdx].forEach(m => mEl.appendChild(createMeldGroup(m, true)));
+    const hEl = document.getElementById('res-hand'); hEl.innerHTML = '';
+    game.hands[pIdx].forEach(t => hEl.appendChild(createTileDOM(t, false, t===game.bao, false)));
+    const lEl = document.getElementById('res-yaku-list'); lEl.innerHTML = '';
+    res.list.forEach(x => { 
+        let span = document.createElement('span');
+        span.innerText = x.mul ? `${x.name} x${x.mul}` : `${x.name} ${x.base}番`;
+        lEl.appendChild(span);
+    });
+    document.getElementById('res-total').innerText = res.total;
+    document.getElementById('result-screen').style.display = 'flex';
+}
+
+function init() {
+    document.getElementById('result-screen').style.display = 'none';
+    let all = []; ['m','s','p'].forEach(s => {for(let n=1;n<=9;n++) for(let i=0;i<4;i++) all.push(n+s)}); 
+    for(let n=1;n<=7;n++) for(let i=0;i<4;i++) all.push(n+'z');
+    game = { 
+        deck: all.sort(()=>Math.random()-0.5), 
+        hands:[[],[],[],[]], 
+        melds:[[],[],[],[]], 
+        rivers:[[],[],[],[]], 
+        turn:0, 
+        winner:-1, 
+        lastPlayer:-1, 
+        lastTile:null, 
+        isGangState:false,
+        // --- 新增：飘财相关状态 ---
+        piaoCounts: [0, 0, 0, 0],       // 记录每个玩家连飘次数
+        isActionLockedByPiao: false,    // 全局锁定：三家不能吃碰杠
+        // --- 新增重置 ---
+        isQiangGangEvent: false,
+        isQiangGangAttempt: null
+    };
+    game.bao = game.deck.pop(); 
+    document.getElementById('bao-display').innerText = ICONS[game.bao[1]][parseInt(game.bao[0])-1];
+    for(let i=0; i<4; i++) { game.hands[i] = game.deck.splice(0,13); sortHand(game.hands[i]); }
+    render(); nextTurn(0);
+}
+window.onload = init;
+</script>
+</body>
+</html>
