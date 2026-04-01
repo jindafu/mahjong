@@ -178,22 +178,73 @@ function processDiscards(tile, fromIdx) {
     else handlePrioritizedRequests(requests, tile, fromIdx);
 }
 
+// --- 修改 handlePrioritizedRequests 中循环 AI 处理的部分 ---
 function handlePrioritizedRequests(requests, tile, fromIdx) {
-    let pgReqs = requests.filter(r => r.acts.includes('PONG') || r.acts.includes('GANG'));
-    let pPG = pgReqs.find(r => r.pIdx === 0);
-    if (pPG) {
-        showActions(pPG.acts, tile, fromIdx, (d) => {
-            if(d === 'PASS') {
-                let aiPG = pgReqs.find(r => r.pIdx !== 0);
-                if(aiPG) executeAIAction(aiPG, tile, fromIdx);
-                else checkChiPhase(requests, tile, fromIdx);
-            } else handleAction(d, 0, tile, fromIdx);
-        });
-    } else if (pgReqs.length > 0) {
-        executeAIAction(pgReqs[0], tile, fromIdx);
-    } else {
-        checkChiPhase(requests, tile, fromIdx);
+    // 1. 定义优先级：碰/杠为 2，吃为 1
+    const getScore = (req) => (req.acts.includes('GANG') || req.acts.includes('PONG')) ? 2 : 1;
+    
+    // 2. 将所有请求按 优先级降序 + 座位顺序 排序
+    // (pIdx - fromIdx + 4) % 4 确保从出牌人的下家开始按顺时针轮询
+    requests.sort((a, b) => {
+        let scoreA = getScore(a);
+        let scoreB = getScore(b);
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        return ((a.pIdx - fromIdx + 4) % 4) - ((b.pIdx - fromIdx + 4) % 4);
+    });
+
+    // 3. 递归处理请求，确保前面的“过”了才问下一个
+    function trigger(index) {
+        if (index >= requests.length) {
+            nextTurn((fromIdx + 1) % 4);
+            return;
+        }
+
+        let req = requests[index];
+        if (req.pIdx === 0) {
+            // 玩家请求：弹出面板，点“过”则继续下一个请求
+            showActions(req.acts, tile, fromIdx, (decision) => {
+                if (decision === 'PASS') trigger(index + 1);
+                else handleAction(decision, 0, tile, fromIdx);
+            });
+        } else {
+            // AI 请求：保留您的反包风险和策略逻辑
+            let pIdx = req.pIdx;
+            let currentMeldCount = game.melds[pIdx].filter(m => {
+                let sourceIdx = (pIdx + [3, 2, 1][m.fromRel]) % 4;
+                return sourceIdx === fromIdx;
+            }).length;
+
+            let shouldSkip = false;
+            if (currentMeldCount === 2) {
+                let strategy = Math.floor(Math.random() * 2); 
+                if (strategy === 1) {
+                    let mockHand = [...game.hands[pIdx]];
+                    if (req.acts[0] === 'GANG' || req.acts[0] === 'PONG') {
+                        mockHand = mockHand.filter(x => x !== tile);
+                    }
+                    let bs = mockHand.filter(x => x === game.bao).length;
+                    let others = mockHand.filter(x => x !== game.bao);
+                    if (!checkBasicHu(others, bs) && bs < 2) shouldSkip = true;
+                }
+            }
+
+            if (shouldSkip) {
+                trigger(index + 1);
+            } else {
+                setTimeout(() => {
+                    let act = req.acts[0];
+                    if (act === 'CHI') {
+                        let sets = checkChiOptions(pIdx, tile);
+                        handleAction({type: 'CHI', set: sets[0]}, pIdx, tile, fromIdx);
+                    } else {
+                        handleAction(act, pIdx, tile, fromIdx);
+                    }
+                }, 400);
+            }
+        }
     }
+
+    trigger(0); // 开始轮询
 }
 
 function checkChiPhase(requests, tile, fromIdx) {
@@ -264,8 +315,24 @@ function handleAction(decision, pIdx, tile, fromIdx) {
     }
 
     if (type === 'PONG') {
-        h.splice(h.indexOf(tile), 1); h.splice(h.indexOf(tile), 1);
+        h.splice(h.indexOf(tile), 1); 
+        h.splice(h.indexOf(tile), 1);
         game.melds[pIdx].push({ type: 'PONG', tiles: [tile, tile, tile], fromRel: rel });
+        
+        // --- 新增：碰完后立即检查是否可以【补杠】 (仅限玩家 pIdx === 0) ---
+        if (pIdx === 0) {
+            let canFillGang = h.includes(tile); // 刚碰完，手牌里如果还有这张牌，就是补杠
+            if (canFillGang) {
+                // 延迟一瞬间弹出，避免 UI 冲突
+                setTimeout(() => {
+                    showActions(['GANG'], tile, -1, (decision) => {
+                        if (decision === 'GANG') {
+                            handleAction('GANG', 0, tile, -1);
+                        }
+                    });
+                }, 300);
+            }
+        }
     } else if (type === 'GANG') {
         let pongMeld = game.melds[pIdx].find(m => m.type === 'PONG' && m.tiles[0] === tile);
         
@@ -313,8 +380,22 @@ function handleAction(decision, pIdx, tile, fromIdx) {
         game.isTrueDraw = false;
         render(); setTimeout(() => nextTurn(pIdx), 600); return;
     }else if (type === 'CHI') {
-        decision.set.forEach(t => { if(t !== tile) h.splice(h.indexOf(t), 1); });
-        game.melds[pIdx].push({ type: 'CHI', tiles: [...decision.set].sort(), fromRel: -1 });
+        // 兼容处理：确保 decision.set 存在
+        let chiSet = (decision && decision.set) ? decision.set : null;
+        if (!chiSet) {
+            let sets = checkChiOptions(pIdx, tile);
+            if (sets.length > 0) chiSet = sets[0];
+        }
+        
+        if (chiSet) {
+            chiSet.forEach(t => { 
+                if(t !== tile) {
+                    let hIdx = h.indexOf(t);
+                    if(hIdx !== -1) h.splice(hIdx, 1);
+                }
+            });
+            game.melds[pIdx].push({ type: 'CHI', tiles: [...chiSet].sort(), fromRel: rel });
+        }
     }
     if (tile && fromIdx !== -1 && type !== 'GANG') game.rivers[fromIdx].pop();
     game.turn = pIdx; sortHand(h); render();
@@ -447,6 +528,59 @@ function aiPlay(pIdx) {
 // ---------------- 判定核心 ----------------
 
 function calculateYaku(hand, melds, isGang) {
+	// 1. 天胡判定：必须是起手14张牌（没有副露），且是游戏第一轮摸牌阶段
+    // 判断标准：副露为空 且 手牌为14张 且 还没出过牌（可以通过 deck 长度或简单的标记判断）
+    // 在你的代码架构中，init 后第一次 call calculateYaku 且手牌为14即为天胡
+    if (melds.length === 0 && hand.length === 14 && game.rivers.every(r => r.length === 0)) {
+        // 校验是否真的达成了胡牌基本条件（防止没胡点胡）
+        // 这里调用一个基础的胡牌校验，如果能胡，直接给天胡番型
+        let bs = hand.filter(x => x === game.bao).length;
+        let others = hand.filter(x => x !== game.bao).sort();
+        
+        // 简单复用现有的基础校验逻辑，如果能胡则触发天胡
+        if (checkBasicHu(others, bs)) {
+            return {
+                total: 4, // 基础番数假设为1，天胡x4（或者根据你的基数自摸2x2=4，这里直接给总番数结果）
+                list: [{name: "天胡", mul: 4}]
+            };
+        }
+    }
+	
+	// --- 新增：包与反包判定逻辑 ---
+    let baoType = null;
+    let pIdx = game.winner !== -1 ? game.winner : game.turn; // 当前胡牌人
+    
+    // 统计当前胡牌人副露中各家的次数 (fromRel: 0下家, 1对家, 2上家)
+    let counts = {0:0, 1:0, 2:0};
+    melds.forEach(m => {
+        if (m.fromRel !== -1) counts[m.fromRel]++;
+    });
+	
+	// 判定：是否有任何一家被胡牌人吃碰杠了3次及以上
+    let isBaoTargetIdx = Object.keys(counts).find(key => counts[key] >= 3);
+    if (isBaoTargetIdx !== undefined) {
+        baoType = "包"; // 胡牌人包了别人
+    }
+	
+	// 判定：反包 (检查三家对手的副露里，是否有人包了当前的胡牌人)
+    // 逻辑：如果某人的副露来源指向当前胡牌人且次数>=3
+    for (let i = 0; i < 4; i++) {
+        if (i === pIdx) continue;
+        let otherCounts = {0:0, 1:0, 2:0};
+        game.melds[i].forEach(m => {
+            if (m.fromRel !== -1) {
+                // 计算该副露相对于玩家 i 的来源在全局是谁
+                let sourceIdx = (i + [3, 2, 1][m.fromRel]) % 4; 
+                if (sourceIdx === pIdx) otherCounts[m.fromRel]++;
+            }
+        });
+        if (Object.values(otherCounts).some(c => c >= 3)) {
+            baoType = "反包";
+            break;
+        }
+    }
+	
+	
     // 如果财神刚好就是白板，不需要双重身份，直接走原始逻辑
     if (game.bao === '7z') {
         let bs = hand.filter(x => x === game.bao).length;
@@ -482,9 +616,9 @@ function calculateYaku(hand, melds, isGang) {
                 return m;
             });
 
-            // 针对这一种组合，去算番
-            let res = calculateYakuCore(currentOthers, bs, currentMelds, isGang, hand.length);
-            // 记录番数最大的打法
+            // 针对这一种组合，去算番  
+			let res = calculateYakuCore(currentOthers, bs, currentMelds, isGang, hand.length, baoType);
+			// 记录番数最大的打法
             if (res.total > bestResult.total) bestResult = res;
         }
     }
@@ -492,7 +626,7 @@ function calculateYaku(hand, melds, isGang) {
 }
 
 // 剥离出的纯净版胡牌核心运算
-function calculateYakuCore(others, bs, melds, isGang, handLength) {
+function calculateYakuCore(others, bs, melds, isGang, handLength, baoType) {
     let yakus = [{name: "自摸", base: 2}];
     let canHu = false, isBaoTou = false;
     let isDanDiao = (handLength === 2); 
@@ -507,26 +641,49 @@ function calculateYakuCore(others, bs, melds, isGang, handLength) {
         if(buda) { 
             canHu = true; yakus.push(buda); 
         } else {
-            if (bs >= 2 && canDiv(others, bs - 2)) { canHu = true; isBaoTou = true; }
-            if (!canHu && bs >= 1) {
-                for (let t of [...new Set(others)]) {
-                    let temp = [...others]; temp.splice(temp.indexOf(t), 1); 
-                    if (canDiv(temp, bs - 1)) { canHu = true; isBaoTou = true; break; }
-                }
-            }
-            if (!canHu) {
-                for (let t of [...new Set(others)]) {
-                    let temp = [...others];
-                    if (temp.filter(x => x === t).length >= 2) {
-                        temp.splice(temp.indexOf(t), 2); 
-                        if (canDiv(temp, bs)) { canHu = true; break; }
+			// 1. 先找将：遍历所有可能的将牌
+            for (let t of [...new Set(others)]) {
+                let temp = [...others];
+                // 情况A：用两张真牌当将
+                if (temp.filter(x => x === t).length >= 2) {
+                    let tempArr = [...temp];
+                    tempArr.splice(tempArr.indexOf(t), 2); 
+                    if (canDiv(tempArr, bs)) { 
+                        canHu = true; 
+                        // 如果这时候还剩财神，且财神没被 canDiv 用掉(即bs依然>=1)，才是爆头？ 
+                        // 不，松阳麻将爆头定义是：12张成牌后，剩下的1+1。
                     }
                 }
+            }
+			// 2. 如果普通胡不成立，或者为了判定爆头，检查 12+1 结构
+            // 爆头判定：bs>=1 且 剩余的 others 去掉一张牌后能成牌
+            if (bs >= 1) {
+                for (let t of [...new Set(others)]) {
+                    let temp = [...others];
+                    temp.splice(temp.indexOf(t), 1); // 拿出一张牌，看剩下的能不能成牌
+                    if (canDiv(temp, bs - 1)) { 
+                        // 只有满足这个 12(成)+1(待)+1(财) 结构，才是爆头
+                        canHu = true; 
+                        isBaoTou = true; 
+                        break; 
+                    }
+                }
+            }
+            // 3. 财神头判定 (双财神做将)
+            if (!canHu && bs >= 2 && canDiv(others, bs - 2)) { 
+                canHu = true; 
+                isBaoTou = true; 
             }
         }
     }
 
     if(!canHu) return {total: 0};
+	// --- 精准新增：包/反包番型显示 ---
+    if (baoType === "包") {
+        yakus.push({name: "包", base: 0});
+    } else if (baoType === "反包") {
+        yakus.push({name: "反包", base: 0});
+    }
 	// --- 精准新增：抢杠番型 ---
     if (game.isQiangGangEvent) {
         yakus.push({name: "抢杠", base: 0}); // 增加名头，不加分
@@ -553,6 +710,37 @@ function calculateYakuCore(others, bs, melds, isGang, handLength) {
     let total = yakus[0].base;
     for(let i = 1; i < yakus.length; i++) if(yakus[i].mul) total *= yakus[i].mul;
     return {list: yakus, total: total};
+}
+
+// --- 在脚本中找个位置添加这个简单校验函数 ---
+function checkBasicHu(others, bs) {
+    // 检查七对
+    if (others.length + bs === 14) {
+        let c = {}; others.forEach(t => c[t] = (c[t]||0)+1);
+        let singleTiles = 0;
+        for(let t in c) if(c[t] % 2 !== 0) singleTiles++;
+        if (singleTiles <= bs) return true;
+    }
+    // 检查不搭
+    if (checkBuDa(others, bs, game.bao)) return true;
+    // 检查常规胡（带将）
+    for (let t of [...new Set(others)]) {
+        let temp = [...others];
+        if (temp.filter(x => x === t).length >= 2) {
+            temp.splice(temp.indexOf(t), 2);
+            if (canDiv(temp, bs)) return true;
+        }
+    }
+    if (bs >= 1) {
+        for (let t of [...new Set(others)]) {
+            let temp = [...others];
+            temp.splice(temp.indexOf(t), 1);
+            if (canDiv(temp, bs - 1)) return true;
+        }
+    }
+    if (bs >= 2 && canDiv(others, bs - 2)) return true;
+    
+    return false;
 }
 
 function canDiv(ts, bs) {
@@ -610,7 +798,15 @@ function checkSevenPairs(others, bs) {
     let c = {}; others.forEach(t => c[t] = (c[t]||0)+1);
     let singleTiles = 0;
     for(let t in c) if(c[t] % 2 !== 0) singleTiles++;
-    return { success: (singleTiles <= bs), isBao: (bs >= 1 && singleTiles <= bs - 1) };
+    
+    // 只有当财神是“多出来”的一个，即不需要它凑成第7对也能胡（剩下1+1）时才是爆头
+    let success = (singleTiles <= bs);
+    let isBao = false;
+    if (success && bs > 0) {
+        // 如果扣除一个财神后依然能凑成七对，说明是爆头
+        if (singleTiles <= bs - 1) isBao = true;
+    }
+    return { success: success, isBao: isBao };
 }
 
 function checkDuiDuiHu(others, bs, melds) {
@@ -703,6 +899,7 @@ function init() {
         // --- 新增：飘财相关状态 ---
         piaoCounts: [0, 0, 0, 0],       // 记录每个玩家连飘次数
         isActionLockedByPiao: false,    // 全局锁定：三家不能吃碰杠
+		piaoTriggerIdx: -1,
         // --- 新增重置 ---
         isQiangGangEvent: false,
         isQiangGangAttempt: null
