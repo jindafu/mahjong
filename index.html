@@ -1,41 +1,65 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta charset="UTF-8">
     <title>松阳麻将 - 补杠与不搭判定修正版</title>
     <style>
-        :root { --soul-gold: #ceb07e; --jade-green: #1a3c34; --tile-w: 30px; --tile-h: 42px; --win-red: #ff4d4d; --draw-blue: #4a90e2; }
-        body, html { margin: 0; padding: 0; height: 100vh; width: 100vw; background: radial-gradient(circle, #2d5a4c 0%, #1a3c34 100%); overflow: hidden; font-family: "STKaiti", "Microsoft YaHei", serif; }
-        .player-container { position: absolute; display: flex; align-items: flex-end; justify-content: center; }
-        
-        #area-0 { bottom: 25px; left: 50%; transform: translateX(-50%); z-index: 1000; }
-        #area-2 { top: 25px; left: 50%; transform: translateX(-50%) rotate(180deg); }
-        #area-1 { right: 30px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
-        #area-3 { left: 30px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+    :root { 
+        --soul-gold: #ceb07e; 
+        --jade-green: #1a3c34; 
+        /* 增大移动端基础尺寸变量 */
+        --tile-w: 40px; 
+        --tile-h: 56px; 
+        --win-red: #ff4d4d; 
+        --draw-blue: #4a90e2; 
+    }
 
-        .tile { width: 50px; height: 68px; background: #fffdf5; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2rem; position: relative; box-shadow: 0 4px 0 #ccc; border: 1.5px solid #ddd; cursor: pointer; }
-        .tile.tile-sm { width: var(--tile-w); height: var(--tile-h); font-size: 1.2rem; cursor: default; box-shadow: 0 2px 0 #bbb; }
-        .is-flipped { background: linear-gradient(135deg, #2a5040, #1a3c34) !important; color: transparent !important; border: 1px solid #1a3026 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 0 2px 0 #111 !important; }
-        .is-last-draw { margin-left: 25px !important; border: 3px solid var(--draw-blue) !important; box-shadow: 0 0 20px var(--draw-blue) !important; transform: translateY(-12px); }
-        .global-last-discard { border: 2.5px solid var(--win-red) !important; box-shadow: 0 0 15px var(--win-red) !important; }
-        .is-bao { background: #fffde7 !important; border-color: var(--soul-gold) !important; }
-        .is-bao::after { content: '财'; position: absolute; top: 0; left: 0; background: var(--soul-gold); color: #630; font-size: 10px; padding: 1px 2px; font-weight: bold; border-radius: 0 0 4px 0; }
-        
-        .river { position: absolute; display: grid; grid-template-columns: repeat(6, var(--tile-w)); gap: 5px; z-index: 50; }
-        .r-bottom { bottom: 195px; left: 50%; transform: translateX(-50%); }
-        .r-top { top: 135px; left: 50%; transform: translateX(-50%) rotate(180deg); }
-        .r-right { right: 30%; top: 50%; transform: translate(50%, -50%) rotate(-90deg); }
-        .r-left { left: 30%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+    /* 关键：解决 Emoji 颜色问题并优化字体 */
+    .tile { 
+        width: 65px;      /* 调大玩家手牌 */
+        height: 90px; 
+        background: #fffdf5; 
+        border-radius: 6px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        font-size: 2.8rem; /* 增大图标 */
+        position: relative; 
+        box-shadow: 0 4px 0 #ccc; 
+        border: 1.5px solid #ddd; 
+        cursor: pointer;
+        /* 强制彩色渲染方案 */
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", serif;
+        color: #000; /* 确保基础颜色可见 */
+    }
 
-        #action-panel { display:none; position:absolute; bottom:230px; left:50%; transform:translateX(-50%); z-index:2000; text-align:center; min-width: 450px; }
-        .action-btn { padding: 12px 35px; border-radius: 50px; color: white; border: 2px solid var(--soul-gold); cursor: pointer; font-weight: bold; font-size: 20px; background: rgba(26, 60, 52, 0.95); margin: 0 10px; }
-        .btn-hu { background: #d63031 !important; border-color: #ff7675 !important; }
+    /* 增大河牌/副露牌尺寸 */
+    .tile.tile-sm { 
+        width: var(--tile-w); 
+        height: var(--tile-h); 
+        font-size: 1.8rem; 
+        cursor: default; 
+        box-shadow: 0 2px 0 #bbb; 
+    }
 
-        #result-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
-        .res-card { background: var(--jade-green); padding: 30px; border-radius: 20px; border: 3px solid var(--soul-gold); text-align: center; color: white; width: 850px; }
-        .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
-        .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
-    </style>
+    /* 移动端横屏强制适配 */
+    @media screen and (max-width: 900px) and (orientation: landscape) {
+        .tile { width: 50px; height: 70px; font-size: 2rem; }
+        .tile.tile-sm { --tile-w: 30px; --tile-h: 42px; font-size: 1.2rem; }
+        #area-0 { bottom: 10px; }
+        .river { gap: 3px; }
+    }
+
+    /* 针对手机竖屏的提示（可选，但建议增加以引导横屏） */
+    @media screen and (orientation: portrait) {
+        body::before {
+            content: "请旋转手机以横屏模式游玩";
+            position: fixed; z-index: 10000; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a3c34; color: white; display: flex; align-items: center; justify-content: center;
+        }
+    }
+</style>
 </head>
 <body>
 <div id="game-stage">
