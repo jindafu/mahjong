@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>松阳麻将</title>
     <style>
         :root { --soul-gold: #ceb07e; --jade-green: #1a3c34; --tile-w: 30px; --tile-h: 42px; --win-red: #ff4d4d; --draw-blue: #4a90e2; }
@@ -37,54 +37,42 @@
         .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
         .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
 		
-		/* --- 移动端专属补丁，不影响PC --- */
+		/* --- 仅针对移动端浏览器的补丁，PC端不受影响 --- */
 		@media screen and (max-width: 1024px) {
-			/* 1. 解决颜色问题：强制所有麻将使用彩色字体 */
-			.tile {
-				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+			/* 1. 解决麻将太小看不清的问题 */
+			:root {
+				--tile-w: 38px !important; /* 强制放大打出的牌宽度 */
+				--tile-h: 52px !important; /* 强制放大打出的牌高度 */
 			}
 
-			/* 2. 竖屏检测：如果用户没转手机，显示提示 */
-			@media (orientation: portrait) {
-				body::after {
-					content: "🔄 请解锁手机方向锁定并横屏游玩";
-					position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-					background: #1a3c34; color: #ceb07e; z-index: 10000;
-					display: flex; align-items: center; justify-content: center;
-					font-size: 1.2rem; padding: 20px; text-align: center;
-				}
+			.tile { 
+				width: 60px !important;    /* 强制放大手里的牌 */
+				height: 82px !important; 
+				font-size: 2.8rem !important; /* 放大麻将字符 */
+				/* 2. 解决手机端麻将没颜色的问题 */
+				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", serif !important;
 			}
 
-			/* 3. 横屏适配：放大麻将并保持布局 */
-			@media (orientation: landscape) {
-				/* 整体放大，解决太小看不清 */
-				#game-stage {
-					transform: scale(1.15);
-					transform-origin: center center;
-				}
-				
-				/* 进一步微调手牌大小，确保好点 */
-				.tile {
-					width: 58px !important;
-					height: 80px !important;
-					font-size: 2.5rem !important;
-				}
-
-				/* 牌河微调，防止超出 */
-				.tile.tile-sm {
-					width: 36px !important;
-					height: 50px !important;
-					font-size: 1.6rem !important;
-				}
-				
-				.river {
-					grid-template-columns: repeat(6, 36px) !important;
-					gap: 2px !important;
-				}
-
-				/* 适配刘海屏，防止太靠边 */
-				#area-0 { bottom: 5px !important; }
+			.tile.tile-sm {
+				font-size: 1.8rem !important;
 			}
+
+			/* 3. 修正牌河布局（解决旋转后位置不对） */
+			.river { 
+				grid-template-columns: repeat(6, 38px) !important; 
+				gap: 3px !important; 
+			}
+
+			/* 4. 微调选中蓝框的位置，确保不偏移 */
+			.tile.selected {
+				transform: translateY(-15px) !important;
+				border: 2px solid #007bff !important;
+			}
+
+			/* 5. 适配手机屏幕高度，防止手牌沉底 */
+			#area-0 { bottom: 10px !important; }
+			#action-panel { bottom: 180px !important; transform: translateX(-50%) scale(0.9); }
+			.info-box { transform: scale(0.85); transform-origin: left top; }
 		}
     </style>
 </head>
