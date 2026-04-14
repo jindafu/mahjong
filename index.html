@@ -37,48 +37,53 @@
         .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
         .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
 		
-		/* --- 以下代码仅在手机/平板端生效，PC端完全隔离 --- */
-		@media screen and (max-width: 900px) {
-			/* 1. 竖屏提示层 */
+		/* --- 移动端专属补丁，不影响PC --- */
+		@media screen and (max-width: 1024px) {
+			/* 1. 解决颜色问题：强制所有麻将使用彩色字体 */
+			.tile {
+				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+			}
+
+			/* 2. 竖屏检测：如果用户没转手机，显示提示 */
 			@media (orientation: portrait) {
 				body::after {
-					content: "🔄 请旋转手机横屏游玩";
+					content: "🔄 请解锁手机方向锁定并横屏游玩";
 					position: fixed; top: 0; left: 0; width: 100%; height: 100%;
 					background: #1a3c34; color: #ceb07e; z-index: 10000;
-					display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+					display: flex; align-items: center; justify-content: center;
+					font-size: 1.2rem; padding: 20px; text-align: center;
 				}
 			}
 
-			/* 2. 手机横屏补丁：不改动原变量，直接强制放大元素 */
+			/* 3. 横屏适配：放大麻将并保持布局 */
 			@media (orientation: landscape) {
-				/* 放大手牌：原 50x68 -> 现 62x84 */
-				.tile { 
-					width: 62px !important; 
-					height: 84px !important; 
-					font-size: 2.8rem !important; 
+				/* 整体放大，解决太小看不清 */
+				#game-stage {
+					transform: scale(1.15);
+					transform-origin: center center;
 				}
-				/* 放大牌河里的牌：原 30x42 -> 现 40x56 */
-				.tile.tile-sm { 
-					width: 40px !important; 
-					height: 56px !important; 
-					font-size: 1.8rem !important; 
+				
+				/* 进一步微调手牌大小，确保好点 */
+				.tile {
+					width: 58px !important;
+					height: 80px !important;
+					font-size: 2.5rem !important;
 				}
-				/* 修正牌河网格宽度：必须强制为 6列 x 40px */
-				.river { 
-					grid-template-columns: repeat(6, 40px) !important; 
-					gap: 3px !important; 
+
+				/* 牌河微调，防止超出 */
+				.tile.tile-sm {
+					width: 36px !important;
+					height: 50px !important;
+					font-size: 1.6rem !important;
 				}
-				/* 修正选中蓝框的位置：确保在放大后依然紧贴 */
-				.tile.selected {
-					border: 2px solid #007bff !important;
-					transform: translateY(-15px) !important;
+				
+				.river {
+					grid-template-columns: repeat(6, 36px) !important;
+					gap: 2px !important;
 				}
-				/* 微调底部玩家位置，防止太靠下被手机底杠挡住 */
-				#area-0 { bottom: 10px !important; }
-				/* 缩小左上角信息框，腾出空间 */
-				.info-box { transform: scale(0.8); transform-origin: left top; }
-				/* 操作按钮适配 */
-				#action-panel { bottom: 180px !important; transform: translateX(-50%) scale(0.9); }
+
+				/* 适配刘海屏，防止太靠边 */
+				#area-0 { bottom: 5px !important; }
 			}
 		}
     </style>
