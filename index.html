@@ -37,42 +37,48 @@
         .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
         .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
 		
-		/* --- 仅针对移动端浏览器的补丁，PC端不受影响 --- */
-		@media screen and (max-width: 1024px) {
-			/* 1. 解决麻将太小看不清的问题 */
-			:root {
-				--tile-w: 38px !important; /* 强制放大打出的牌宽度 */
-				--tile-h: 52px !important; /* 强制放大打出的牌高度 */
-			}
-
+		/* 只有屏幕宽度小于 950px 的设备才会运行以下代码，PC端 100% 隔离 */
+		@media screen and (max-width: 950px) {
+			
+			/* 1. 颜色与基础尺寸修正 */
 			.tile { 
-				width: 60px !important;    /* 强制放大手里的牌 */
-				height: 82px !important; 
-				font-size: 2.8rem !important; /* 放大麻将字符 */
-				/* 2. 解决手机端麻将没颜色的问题 */
-				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", serif !important;
+				/* 强制调用苹果彩色字体库，解决无颜色问题 */
+				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+				width: 54px !important;  /* 缩小手机下手牌，防止太大 */
+				height: 74px !important;
+				font-size: 2.2rem !important;
+				color: #000 !important;
 			}
 
-			.tile.tile-sm {
-				font-size: 1.8rem !important;
+			/* 2. 牌河修正：解决布局错乱 */
+			.tile.tile-sm { 
+				width: 32px !important;  /* 手机河牌尺寸 */
+				height: 44px !important;
+				font-size: 1.4rem !important;
 			}
 
-			/* 3. 修正牌河布局（解决旋转后位置不对） */
+			/* 强制重置网格宽度，防止牌河错位 */
 			.river { 
-				grid-template-columns: repeat(6, 38px) !important; 
-				gap: 3px !important; 
+				grid-template-columns: repeat(6, 32px) !important; 
+				gap: 4px !important; 
 			}
 
-			/* 4. 微调选中蓝框的位置，确保不偏移 */
+			/* 3. 位置修正：解决蓝框偏移 */
 			.tile.selected {
-				transform: translateY(-15px) !important;
+				transform: translateY(-10px) !important; /* 减小跳起高度 */
 				border: 2px solid #007bff !important;
 			}
 
-			/* 5. 适配手机屏幕高度，防止手牌沉底 */
-			#area-0 { bottom: 10px !important; }
-			#action-panel { bottom: 180px !important; transform: translateX(-50%) scale(0.9); }
-			.info-box { transform: scale(0.85); transform-origin: left top; }
+			/* 4. 解决页面超出屏幕大小的问题 */
+			body, html {
+				position: fixed;
+				width: 100%;
+				height: 100%;
+			}
+
+			/* 适配底部位置 */
+			#area-0 { bottom: 15px !important; }
+			#action-panel { bottom: 160px !important; transform: translateX(-50%) scale(0.8) !important; }
 		}
     </style>
 </head>
