@@ -216,14 +216,21 @@ function handlePrioritizedRequests(requests, tile, fromIdx) {
 
             let shouldSkip = false;
             if (currentMeldCount === 2) {
+				// 随机策略：0为激进(无视)，1为保守
                 let strategy = Math.floor(Math.random() * 2); 
-                if (strategy === 1) {
+                if (strategy === 1) {// 保守策略
+					// 模拟：如果我吃了这牌，手牌能否听牌/胡牌？
+					// 简单逻辑：如果是杠或碰，移除手牌对应牌；如果是吃，移除对应两张
+					// 此处简化判定：如果吃/碰后，手牌剩余牌+1张财神能达到听牌或胡牌状态
                     let mockHand = [...game.hands[pIdx]];
                     if (req.acts[0] === 'GANG' || req.acts[0] === 'PONG') {
                         mockHand = mockHand.filter(x => x !== tile);
                     }
+					// 判定：如果这一步走了，能不能胡？（调用 checkBasicHu 预判）
+					// 因为副露后手牌变短，这里校验剩余牌是否接近成型
                     let bs = mockHand.filter(x => x === game.bao).length;
                     let others = mockHand.filter(x => x !== game.bao);
+					// 保守预判：除非这一手下去直接能胡，或者财神多，否则放弃
                     if (!checkBasicHu(others, bs) && bs < 2) shouldSkip = true;
                 }
             }
@@ -317,22 +324,7 @@ function handleAction(decision, pIdx, tile, fromIdx) {
     if (type === 'PONG') {
         h.splice(h.indexOf(tile), 1); 
         h.splice(h.indexOf(tile), 1);
-        game.melds[pIdx].push({ type: 'PONG', tiles: [tile, tile, tile], fromRel: rel });
-        
-        // --- 新增：碰完后立即检查是否可以【补杠】 (仅限玩家 pIdx === 0) ---
-        if (pIdx === 0) {
-            let canFillGang = h.includes(tile); // 刚碰完，手牌里如果还有这张牌，就是补杠
-            if (canFillGang) {
-                // 延迟一瞬间弹出，避免 UI 冲突
-                setTimeout(() => {
-                    showActions(['GANG'], tile, -1, (decision) => {
-                        if (decision === 'GANG') {
-                            handleAction('GANG', 0, tile, -1);
-                        }
-                    });
-                }, 300);
-            }
-        }
+        game.melds[pIdx].push({ type: 'PONG', tiles: [tile, tile, tile], fromRel: rel });   
     } else if (type === 'GANG') {
         let pongMeld = game.melds[pIdx].find(m => m.type === 'PONG' && m.tiles[0] === tile);
         
@@ -395,6 +387,35 @@ function handleAction(decision, pIdx, tile, fromIdx) {
                 }
             });
             game.melds[pIdx].push({ type: 'CHI', tiles: [...chiSet].sort(), fromRel: rel });
+        }
+    }
+	// --- 核心修复：吃碰动作后的全量杠牌检测与出牌权恢复 ---
+    if (pIdx === 0 && type !== 'HU') {
+        let h0 = game.hands[0];
+        let canBuGangTile = null;
+        for (let m of game.melds[0]) {
+            if (m.type === 'PONG' && h0.includes(m.tiles[0])) {
+                canBuGangTile = m.tiles[0]; break;
+            }
+        }
+        let counts = {}; h0.forEach(x => { if(x !== game.bao) counts[x] = (counts[x] || 0) + 1; });
+        let canAnGangTile = Object.keys(counts).find(k => counts[k] === 4);
+        let targetGang = canBuGangTile || canAnGangTile;
+
+        if (targetGang) {
+            setTimeout(() => {
+                showActions(['GANG'], targetGang, -1, (d) => {
+                    if (d === 'GANG') {
+                        handleAction('GANG', 0, targetGang, -1);
+                    } else {
+                        // 关键修复：玩家点“过”后，必须重置状态确保可以出牌
+                        game.turn = 0; sortHand(game.hands[0]); render();
+                    }
+                });
+            }, 300);
+            if (tile && fromIdx !== -1 && type !== 'GANG') game.rivers[fromIdx].pop();
+            game.turn = 0; render(); // 先渲染一次，让界面显示刚才碰/吃的牌
+            return; 
         }
     }
     if (tile && fromIdx !== -1 && type !== 'GANG') game.rivers[fromIdx].pop();
@@ -528,17 +549,21 @@ function aiPlay(pIdx) {
 // ---------------- 判定核心 ----------------
 
 function calculateYaku(hand, melds, isGang) {
+	// --- 新增：动态计算标准胡牌张数 ---
+    const gangCount = melds.filter(m => m.type === 'GANG' || m.type === 'ANGANG').length;
+    const targetTotal = 14 + gangCount;
+	
 	// 1. 天胡判定：必须是起手14张牌（没有副露），且是游戏第一轮摸牌阶段
     // 判断标准：副露为空 且 手牌为14张 且 还没出过牌（可以通过 deck 长度或简单的标记判断）
     // 在你的代码架构中，init 后第一次 call calculateYaku 且手牌为14即为天胡
-    if (melds.length === 0 && hand.length === 14 && game.rivers.every(r => r.length === 0)) {
+    if (melds.length === 0 && hand.length === targetTotal && game.rivers.every(r => r.length === 0)) {
         // 校验是否真的达成了胡牌基本条件（防止没胡点胡）
         // 这里调用一个基础的胡牌校验，如果能胡，直接给天胡番型
         let bs = hand.filter(x => x === game.bao).length;
         let others = hand.filter(x => x !== game.bao).sort();
         
         // 简单复用现有的基础校验逻辑，如果能胡则触发天胡
-        if (checkBasicHu(others, bs)) {
+        if (checkBasicHu(others, bs, targetTotal)) {
             return {
                 total: 4, // 基础番数假设为1，天胡x4（或者根据你的基数自摸2x2=4，这里直接给总番数结果）
                 list: [{name: "天胡", mul: 4}]
@@ -626,51 +651,45 @@ function calculateYaku(hand, melds, isGang) {
 }
 
 // 剥离出的纯净版胡牌核心运算
-function calculateYakuCore(others, bs, melds, isGang, handLength, baoType) {
+function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targetTotal) {
     let yakus = [{name: "自摸", base: 2}];
     let canHu = false, isBaoTou = false;
     let isDanDiao = (handLength === 2); 
 
-    let sevenRes = (handLength === 14) ? checkSevenPairs(others, bs) : {success:false};
+    let sevenRes = (handLength === targetTotal) ? checkSevenPairs(others, bs, targetTotal) : {success:false};
     
     if (sevenRes.success) {
         canHu = true; yakus.push({name: "七对", mul: 2}); 
         if (sevenRes.isBao) isBaoTou = true;
     } else {
-        let buda = checkBuDa(others, bs, game.bao); 
+        let buda = (melds.length === 0) ? checkBuDa(others, bs, game.bao) : null;
         if(buda) { 
             canHu = true; yakus.push(buda); 
         } else {
-			// 1. 先找将：遍历所有可能的将牌
+            // 1. 判定普通胡（非爆头）：寻找将牌
             for (let t of [...new Set(others)]) {
                 let temp = [...others];
-                // 情况A：用两张真牌当将
                 if (temp.filter(x => x === t).length >= 2) {
                     let tempArr = [...temp];
                     tempArr.splice(tempArr.indexOf(t), 2); 
-                    if (canDiv(tempArr, bs)) { 
-                        canHu = true; 
-                        // 如果这时候还剩财神，且财神没被 canDiv 用掉(即bs依然>=1)，才是爆头？ 
-                        // 不，松阳麻将爆头定义是：12张成牌后，剩下的1+1。
-                    }
+                    if (canDiv(tempArr, bs)) { canHu = true; }
                 }
             }
-			// 2. 如果普通胡不成立，或者为了判定爆头，检查 12+1 结构
-            // 爆头判定：bs>=1 且 剩余的 others 去掉一张牌后能成牌
+            // 2. 判定爆头（财神头）：12张成型 + 1张财神 + 1张单张
+            // 逻辑：只要去掉一张非财神的牌(t)，剩下的牌能配合(bs-1)个财神完成4个面子，即为爆头
             if (bs >= 1) {
                 for (let t of [...new Set(others)]) {
                     let temp = [...others];
-                    temp.splice(temp.indexOf(t), 1); // 拿出一张牌，看剩下的能不能成牌
+                    temp.splice(temp.indexOf(t), 1);
                     if (canDiv(temp, bs - 1)) { 
-                        // 只有满足这个 12(成)+1(待)+1(财) 结构，才是爆头
                         canHu = true; 
                         isBaoTou = true; 
                         break; 
                     }
                 }
             }
-            // 3. 财神头判定 (双财神做将)
-            if (!canHu && bs >= 2 && canDiv(others, bs - 2)) { 
+            // 3. 判定双财神爆头：去掉两个财神，剩下的 others 能完成4个面子
+            if (!isBaoTou && bs >= 2 && canDiv(others, bs - 2)) { 
                 canHu = true; 
                 isBaoTou = true; 
             }
@@ -678,26 +697,22 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType) {
     }
 
     if(!canHu) return {total: 0};
-	// --- 精准新增：包/反包番型显示 ---
-    if (baoType === "包") {
-        yakus.push({name: "包", base: 0});
-    } else if (baoType === "反包") {
-        yakus.push({name: "反包", base: 0});
-    }
-	// --- 精准新增：抢杠番型 ---
-    if (game.isQiangGangEvent) {
-        yakus.push({name: "抢杠", base: 0}); // 增加名头，不加分
-    }
-    // --- 增加飘财番型结算 ---
-    // 注意：这里需要确保能获取到当前胡牌人的索引，通常是 game.turn 或 pIdx
+
+    // --- 后续逻辑（全字、飘财、番数计算等）保持不变 ---
+    let allTiles = [...others]; 
+    melds.forEach(m => allTiles.push(...m.tiles));
+    const isAllHonor = allTiles.every(t => typeof t === 'string' && t.endsWith('z'));
+    if (isAllHonor) yakus.push({name: "全字", mul: 16});
+    
+    if (baoType === "包") yakus.push({name: "包", base: 0});
+    else if (baoType === "反包") yakus.push({name: "反包", base: 0});
+    if (game.isQiangGangEvent) yakus.push({name: "抢杠", base: 0});
+
     let pIdx = game.winner !== -1 ? game.winner : game.turn;
     let piao = game.piaoCounts[pIdx];
+    if (piao === 1) yakus.push({name: "飘财", mul: 2});
+    else if (piao >= 2) yakus.push({name: "双飘", mul: 4});
 
-    if (piao === 1) {
-        yakus.push({name: "飘财", mul: 2});
-    } else if (piao >= 2) {
-        yakus.push({name: "双飘", mul: 4});
-    }
     if(isBaoTou) yakus.push({name: "财神头", mul: 2});
     if(isDanDiao) yakus.push({name: "单吊", mul: 2});
     if(isGang) yakus.push({name: "杠开", mul: 2});
@@ -713,16 +728,16 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType) {
 }
 
 // --- 在脚本中找个位置添加这个简单校验函数 ---
-function checkBasicHu(others, bs) {
+function checkBasicHu(others, bs, targetTotal) {
     // 检查七对
-    if (others.length + bs === 14) {
+    if (others.length + bs === targetTotal) {
         let c = {}; others.forEach(t => c[t] = (c[t]||0)+1);
         let singleTiles = 0;
         for(let t in c) if(c[t] % 2 !== 0) singleTiles++;
         if (singleTiles <= bs) return true;
     }
     // 检查不搭
-    if (checkBuDa(others, bs, game.bao)) return true;
+    if (checkBuDa(others, bs, game.bao,targetTotal)) return true;
     // 检查常规胡（带将）
     for (let t of [...new Set(others)]) {
         let temp = [...others];
@@ -770,15 +785,26 @@ function canDiv(ts, bs) {
     return false;
 }
 
-// --- 仅精准替换 checkBuDa 函数 ---
+function checkBuDa(others, bs, bao, targetTotal) {
+    // 判定前提：手牌总数（不计副露）必须达到标准胡牌张数
+    if(others.length + bs < targetTotal) return null;
 
-function checkBuDa(others, bs, bao) {
-    if([...new Set(others)].length + bs < 14) return null;
-    let isZG = true, ziTypes = new Set(), counts = {m:[], s:[], p:[]};
+    let isZG = true; 
+    let ziTypes = new Set(); 
+    let counts = {m:[], s:[], p:[]};
+    
     for(let t of others) {
         let v = parseInt(t[0]), s = t[1];
-        if(s === 'z') { ziTypes.add(v); } else {
-            for(let ex of counts[s]) if(Math.abs(v-ex) < 3) return null;
+        if(s === 'z') { 
+            // 记录已有的字牌种类
+            ziTypes.add(v); 
+        } else {
+            // 处理 万(m)、条(s)、筒(p) 的数字距离判定
+            for(let ex of counts[s]) {
+                if(Math.abs(v - ex) < 3) return null; // 距离小于3则不成立
+            }
+            
+            // 判定“正规”：所有序数牌必须处于同一序列（如 147, 258, 或 369）
             let line = v % 3; if (line === 0) line = 3; 
             if (counts[s].length > 0) {
                 let firstLine = counts[s][0] % 3; if (firstLine === 0) firstLine = 3;
@@ -787,25 +813,44 @@ function checkBuDa(others, bs, bao) {
             counts[s].push(v);
         }
     }
-    let totalZiKinds = ziTypes.size;
-    if (bs > 0 && bao[1] === 'z' && !ziTypes.has(parseInt(bao[0]))) totalZiKinds += 1;
-    if(totalZiKinds >= 7) return isZG ? {name:"正规七风不搭", mul:8} : {name:"七风不搭", mul:4};
+
+    // --- 核心修正点：七风必须是实实在在的7个字 ---
+    // 不计入财神，直接判定 ziTypes 的长度是否达到 7
+    if(ziTypes.size >= 7) {
+        return isZG ? {name:"正规七风不搭", mul:8} : {name:"七风不搭", mul:4};
+    }
+    
+    // 普通不搭判定
     return isZG ? {name:"正规不搭", mul:4} : {name:"不搭", mul:2};
 }
 
 // --- 1. 精准替换 checkSevenPairs 函数 (增加财神头判定支持) ---
-function checkSevenPairs(others, bs) {
-    let c = {}; others.forEach(t => c[t] = (c[t]||0)+1);
-    let singleTiles = 0;
-    for(let t in c) if(c[t] % 2 !== 0) singleTiles++;
+function checkSevenPairs(others, bs, targetTotal) {
+    // 只有在没有任何杠的情况下（targetTotal === 14），才允许胡七对
+    if (targetTotal !== 14) return { success: false, isBao: false };
     
-    // 只有当财神是“多出来”的一个，即不需要它凑成第7对也能胡（剩下1+1）时才是爆头
+    let c = {}; 
+    others.forEach(t => c[t] = (c[t]||0)+1);
+    
+    let singleTiles = 0;
+    for(let t in c) {
+        if(c[t] % 2 !== 0) singleTiles++;
+    }
+    
+    // 基础判定：单张的数量必须小于等于财神数量，才能凑成七对
     let success = (singleTiles <= bs);
     let isBao = false;
-    if (success && bs > 0) {
-        // 如果扣除一个财神后依然能凑成七对，说明是爆头
-        if (singleTiles <= bs - 1) isBao = true;
+
+    if (success) {
+        // --- 修正逻辑 ---
+        // 判定财神头（爆头）：
+        // 如果财神数量 > 0，且扣除一个财神后，剩下的牌依然能凑成七对（即单张数 <= 剩余财神数）
+        // 这意味着最后一个财神是“多出来”的，形成了 12(成型) + 1(单张) + 1(财神) 的爆头结构
+        if (bs > 0 && singleTiles <= (bs - 1)) {
+            isBao = true;
+        }
     }
+    
     return { success: success, isBao: isBao };
 }
 
