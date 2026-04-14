@@ -3,7 +3,7 @@
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta charset="UTF-8">
-    <title>松阳麻将 - 补杠与不搭判定修正版</title>
+    <title>松阳麻将</title>
     <style>
     :root { 
         --soul-gold: #ceb07e; 
@@ -15,32 +15,13 @@
         --draw-blue: #4a90e2; 
     }
 
-    /* 解决颜色问题：优先使用系统彩色字体，并强制设定字体颜色 */
     .tile { 
-        width: 60px; 
-        height: 82px; 
-        background: #fffdf5; 
-        border-radius: 6px; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        font-size: 2.5rem; 
-        position: relative; 
-        box-shadow: 0 4px 0 #ccc; 
-        border: 1.5px solid #ddd; 
-        cursor: pointer;
-        /* 关键：强制 Apple 设备渲染彩色 Emoji */
-        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", sans-serif;
-        color: #000; 
-    }
-
-    .tile.tile-sm { 
-        width: var(--tile-w); 
-        height: var(--tile-h); 
-        font-size: 1.4rem; /* 稍微调大一点 */
-        cursor: default; 
-        box-shadow: 0 2px 0 #bbb; 
-    }
+		width: 50px; height: 68px; background: #fffdf5; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2.2rem; position: relative; box-shadow: 0 4px 0 #ccc; border: 1.5px solid #ddd; cursor: pointer; 
+		/* 关键修复2：强制各平台优先渲染彩色麻将Emoji */
+		font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", serif;
+		color: #000;
+	}
+	.tile.tile-sm { width: var(--tile-w); height: var(--tile-h); font-size: 1.2rem; cursor: default; box-shadow: 0 2px 0 #bbb; }
 
     /* 移动端适配：当处于横屏时，调整布局 */
     @media screen and (max-device-width: 932px) and (orientation: landscape) {
@@ -73,6 +54,43 @@
     @media screen and (orientation: portrait) {
         #orient-notice { display: flex; }
     }
+	
+	/* ================= 严格隔离的移动端适配 ================= */
+	#orient-notice { display: none; } /* PC端永远隐藏 */
+
+	/* 仅在屏幕宽度小于 950px 的设备（手机/平板）生效，绝不影响 PC */
+	@media screen and (max-width: 950px) {
+		
+		/* 竖屏状态：隐藏游戏，显示旋转提示（解决Safari卡死） */
+		@media screen and (orientation: portrait) {
+			#game-stage { display: none !important; }
+			#orient-notice {
+				display: flex; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+				background: #1a3c34; color: var(--soul-gold); z-index: 10000;
+				align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold;
+			}
+		}
+
+		/* 横屏状态：安全放大麻将尺寸（解决手机端太小看不清） */
+		@media screen and (orientation: landscape) {
+			:root {
+				--tile-w: 38px; /* 放大打出的牌 */
+				--tile-h: 53px;
+			}
+			.tile {
+				width: 58px; /* 放大自己手里的牌 */
+				height: 80px;
+				font-size: 2.6rem; /* 放大麻将图标 */
+			}
+			.tile.tile-sm { font-size: 1.6rem; }
+			
+			/* 微调布局，防止放大的牌超出屏幕 */
+			#area-0 { bottom: 10px; } 
+			.river { gap: 2px; }
+			.info-box { transform: scale(0.85); transform-origin: top left; } /* 缩小左上角UI */
+			#action-panel { bottom: 180px; } /* 操作按钮稍微下移 */
+		}
+	}
 </style>
 </head>
 <body>
