@@ -836,7 +836,23 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
         canHu = true; yakus.push({name: "七对", mul: 2}); 
         if (sevenRes.isBao) isBaoTou = true;
     } else {
-        let buda = (melds.length === 0) ? checkBuDa(others, bs, game.bao) : null;
+        let buda = null;
+		if (melds.length === 0) {
+			// 构建一个“逻辑全手牌”：非财神牌(others) + 真正的财神
+			// 这里的 game.bao 是全局变量，代表当前的财神
+			let checkArr = [...others];
+			for(let i=0; i<bs; i++) checkArr.push(game.bao);
+
+			const rawCounts = {};
+			checkArr.forEach(t => rawCounts[t] = (rawCounts[t] || 0) + 1); 
+			
+			// 核心拦截：除了真正的财神(game.bao)外，是否有任何牌出现了两次
+			const realDup = Object.keys(rawCounts).some(k => k !== game.bao && rawCounts[k] > 1);
+			
+			if (!realDup) {
+				buda = checkBuDa(others, bs, game.bao, targetTotal);
+			}
+		}
         if(buda) { 
             canHu = true; yakus.push(buda); 
         } else {
