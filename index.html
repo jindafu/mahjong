@@ -57,26 +57,22 @@
 		
 		/* 针对手机端扁平屏幕的专项适配 */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
-			/* 强制 body 允许溢出显示，否则边框会被切断 */
-			body, html { overflow: visible !important; }
-			
-			/* 2. 蓝框：当前玩家标记 (改用内发光+粗边框，防止被切) */
-			.active-player {
-				outline: 4px solid #4a90e2 !important;
-				outline-offset: -2px !important; /* 向内偏移，确保不被容器切掉 */
-				background: rgba(74, 144, 226, 0.15) !important;
-				box-shadow: inset 0 0 15px rgba(74, 144, 226, 0.5) !important;
-				border-radius: 8px !important;
-			}
+			/* 解决蓝框：改用高亮背景+强制内边框，防止横屏溢出看不到 */
+    .active-player {
+        background: rgba(74, 144, 226, 0.25) !important; /* 蓝色半透明背景 */
+        border: 4px solid #4a90e2 !important; /* 直接用实线边框，不依赖阴影 */
+        border-radius: 12px !important;
+        z-index: 5000 !important;
+        animation: active-glow 1.5s infinite;
+    }
 
-			/* 3. 红框：最后出的牌 (在手机端加粗并闪烁) */
-			.last-tile {
-				outline: 3px solid #ff4d4d !important;
-				outline-offset: 2px !important;
-				box-shadow: 0 0 10px #ff4d4d !important;
-				animation: pulse-red 1s infinite !important;
-				z-index: 500 !important;
-			}
+    /* 解决红框：横屏下加粗红色边框，并使用内发光 */
+    .last-tile {
+        border: 3px solid #ff4d4d !important;
+        box-shadow: inset 0 0 5px #ff4d4d !important; /* 向内发光，绝对不会被切断 */
+        position: relative !important;
+        z-index: 100 !important;
+    }
 			
 			/* 1. 整体缩小所有牌 */
 			.tile { 
@@ -95,21 +91,33 @@
 				font-size: 0.9rem !important; 
 			}
 
-			/* 3. 修正定位：把手牌压到底部，给牌河留位置 */
-			#area-0 { bottom: 0px !important; }
-			#area-2 { top: 0px !important; }
+
+			/* 解决位置不压底：强制手牌区域位置 */
+    #area-0 { 
+        bottom: 2px !important; /* 强制贴底 */
+        left: 50% !important;
+        transform: translateX(-50%) scale(0.9) !important; 
+        padding: 5px !important;
+        background: rgba(0,0,0,0.3); /* 增加一点底色区分 */
+        border-radius: 10px;
+    }
+    
+    #area-2 { 
+        top: 2px !important; /* 强制贴顶 */
+        left: 50% !important;
+        transform: translateX(-50%) rotate(180deg) scale(0.8) !important; 
+    }
 			/* 3. 左右两家（1号和3号）手牌往两侧挪，防止挡住中间 */
-			#area-1 { right: 10px !important; scale: 0.8; }
-			#area-3 { left: 10px !important; scale: 0.8; }
+			#area-1 { right: 10px !important; scale: 0.9; }
+			#area-3 { left: 10px !important; scale: 0.9; }
 			
 			/* 1. 强制缩小牌河，腾出中间空地 */
 			.river { 
-				grid-template-columns: repeat(10, 18px) !important; 
-				gap: 3px !important;
-				max-height: 80px !important;
+				grid-template-columns: repeat(12, 16px) !important; 
+				gap: 2px !important;
 			}
-			.r-bottom { bottom: 85px !important; }
-			.r-top { top: 60px !important; }
+			.r-bottom { bottom: 70px !important; }
+			.r-top { top: 50px !important; }
 
 			/* 5. 选中蓝框逻辑修正 */
 			.tile.selected {
@@ -123,7 +131,7 @@
 				transform: translateX(-50%) scale(0.6) !important; 
 			}
 			.info-box { 
-				top: 2px !important; left: 2px !important;
+				top: 5px !important; left: 5px !important;
 				transform: scale(0.7) !important;
 				transform-origin: left top;
 				display: flex !important; align-items: center; gap: 5px;
@@ -142,10 +150,11 @@
 			}
 		}
 		
-		@keyframes pulse-red {
-			0% { outline-color: #ff4d4d; }
-			50% { outline-color: transparent; }
-			100% { outline-color: #ff4d4d; }
+		/* 呼吸动画：增强蓝框可见度 */
+		@keyframes active-glow {
+			0% { border-color: #4a90e2; }
+			50% { border-color: #ffffff; }
+			100% { border-color: #4a90e2; }
 		}
     </style>
 </head>
