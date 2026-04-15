@@ -893,42 +893,71 @@ function canDiv(ts, bs) {
 }
 
 function checkBuDa(others, bs, bao, targetTotal) {
-    // 判定前提：手牌总数（不计副露）必须达到标准胡牌张数
-    if(others.length + bs < targetTotal) return null;
+    // others: 剥离了财神后的手牌数组
+    // bs: 财神（宝牌）的数量
+    // bao: 财神的牌值（如 '4z'）
+    // targetTotal: 需要达到的总牌数（通常14）
 
-    let isZG = true; 
-    let ziTypes = new Set(); 
-    let counts = {m:[], s:[], p:[]};
+    let counts = {};
+    let m = [], s = [], p = [], z = [];
     
-    for(let t of others) {
-        let v = parseInt(t[0]), s = t[1];
-        if(s === 'z') { 
-            // 记录已有的字牌种类
-            ziTypes.add(v); 
-        } else {
-            // 处理 万(m)、条(s)、筒(p) 的数字距离判定
-            for(let ex of counts[s]) {
-                if(Math.abs(v - ex) < 3) return null; // 距离小于3则不成立
-            }
-            
-            // 判定“正规”：所有序数牌必须处于同一序列（如 147, 258, 或 369）
-            let line = v % 3; if (line === 0) line = 3; 
-            if (counts[s].length > 0) {
-                let firstLine = counts[s][0] % 3; if (firstLine === 0) firstLine = 3;
-                if (line !== firstLine) isZG = false;
-            }
-            counts[s].push(v);
+    // 1. 严格检查非财神牌的重复情况
+    for (let t of others) {
+        counts[t] = (counts[t] || 0) + 1;
+        // 关键点：如果这牌不是财神，但数量大于1，绝对不能胡不搭
+        if (counts[t] > 1 && t !== bao) return null;
+
+        let v = parseInt(t[0]), type = t[1];
+        if (type === 'm') m.push(v);
+        else if (type === 's') s.push(v);
+        else if (type === 'p') p.push(v);
+        else if (type === 'z') z.push(v);
+    }
+
+    // 2. 检查序数牌(万条筒)的冲突：同花色必须间隔 >= 3
+    const hasConflict = (arr) => {
+        arr.sort((a, b) => a - b);
+        for (let i = 0; i < arr.length - 1; i++) {
+            if (arr[i+1] - arr[i] < 3) return true; // 比如 1,2 或 1,3
         }
-    }
+        return false;
+    };
+    if (hasConflict(m) || hasConflict(s) || hasConflict(p)) return null;
 
-    // --- 核心修正点：七风必须是实实在在的7个字 ---
-    // 不计入财神，直接判定 ziTypes 的长度是否达到 7
-    if(ziTypes.size >= 7) {
-        return isZG ? {name:"正规七风不搭", mul:8} : {name:"七风不搭", mul:4};
+    // 3. 计算逻辑缺口：
+    // 万条筒每个花色最多放3张牌(147/258/369)，共9个坑
+    // 字牌最多7种(东南西北中发白)，共7个坑
+    // 总坑位 16 个。不搭胡牌就是 14 张牌填进这 16 个坑且不准有重复。
+
+    // 计算序数牌占了多少个坑，并计算花色序列（正规不搭用）
+    let isZG = true;
+    [m, s, p].forEach(arr => {
+        if (arr.length > 1) {
+            let line = arr[0] % 3;
+            if (!arr.every(v => v % 3 === line)) isZG = false;
+        }
+    });
+
+    // 4. 处理重复字和财神的关系
+    // 你的案例：摸到白板提示胡，是因为逻辑没发现白板重复了。
+    // 我们再次强制校验：除了财神牌本身，其他所有牌的 count 必须为 1。
+    // 即使财神是南，你有3个南，那是允许的；但白板不是财神，你有2个白板就必死。
+    let duplicateNonBao = false;
+    Object.keys(counts).forEach(key => {
+        if (key !== bao && counts[key] > 1) duplicateNonBao = true;
+    });
+    if (duplicateNonBao) return null;
+
+    // 5. 判定七风
+    let ziTypes = new Set(z);
+    if (bao[1] === 'z') ziTypes.add(parseInt(bao[0]));
+
+    if (ziTypes.size >= 7) {
+        return isZG ? {name: "正规七风不搭", mul: 8} : {name: "七风不搭", mul: 4};
     }
     
-    // 普通不搭判定
-    return isZG ? {name:"正规不搭", mul:4} : {name:"不搭", mul:2};
+    // 普通不搭
+    return isZG ? {name: "正规不搭", mul: 4} : {name: "不搭", mul: 2};
 }
 
 // --- 1. 精准替换 checkSevenPairs 函数 (增加财神头判定支持) ---
@@ -1046,7 +1075,7 @@ function init() {
         [all[i], all[j]] = [all[j], all[i]];
     }
     game = { 
-        deck: all.sort(()=>Math.random()-0.5), 
+        deck: all, 
         hands:[[],[],[],[]], 
         melds:[[],[],[],[]], 
         rivers:[[],[],[],[]], 
