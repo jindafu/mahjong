@@ -72,17 +72,36 @@
         box-shadow: 0 0 8px #4a90e2 !important;
     }
 
-    /* 4. 红框：最后出的一张牌 (global-last-discard) */
-    .global-last-discard {
-		/* 使用 outline 代替 border，因为 outline 不占空间，渲染层级更高 */
-        outline: 3px solid #ff4d4d !important;
-        outline-offset: 1px;
-        background-color: #ffffff !important; /* 强制白色底色 */
-        border: 2px solid #ff4d4d !important; /* 红色边框 */
-        box-shadow: 0 0 8px #ff4d4d !important; /* 红色发光 */
-        position: relative !important;
-        z-index: 2000 !important; /* 强制置顶，防止被别的牌挡住 */
-    }
+    /* 4. 红框：最后出的一张牌 优化版 */
+.global-last-discard {
+    position: relative !important;
+    z-index: 2000 !important;
+    background-color: #fff !important;
+    /* 取消 outline，改用内边框颜色 */
+    border: 1px solid #ff4d4d !important;
+    /* 增加红色呼吸感的外发光 */
+    box-shadow: 0 0 0 2px rgba(255, 77, 77, 0.4), 0 0 10px rgba(255, 77, 77, 0.6) !important;
+}
+
+/* 使用伪元素制造一个稍微大一圈的红框，达到图片中那种略微包裹的效果 */
+.global-last-discard::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 2px solid #ff4d4d;
+    border-radius: 8px; /* 匹配牌的圆角 */
+    pointer-events: none; /* 确保不影响点击 */
+    animation: blink-red 1.5s infinite ease-in-out;
+}
+
+@keyframes blink-red {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
 			/* 1. 整体缩小所有牌 */
 			.tile { 
 				width: 32px !important;    /* 原来50px，手机端减小到32px */
@@ -104,13 +123,24 @@
 			#area-0 { bottom: 0px !important; }
 			#area-2 { top: 0px !important; }
 			/* 3. 左右两家（1号和3号）手牌往两侧挪，防止挡住中间 */
-			#area-1 { right: 10px !important; scale: 0.8; }
-			#area-3 { left: 10px !important; scale: 0.8; }
+			#area-1 { right: -50px !important; scale: 0.8; }
+			#area-3 { left: -50px !important; scale: 0.8; }
 			
 			/* 1. 强制缩小牌河，腾出中间空地 */
 			.river { 
 				grid-template-columns: repeat(6, 18px) !important; /* 进一步缩小牌河单张宽度 */
 				gap: 1px !important; 
+			}
+			/* 右侧牌河：原来是 right: 30%，改为更靠右 */
+			.r-right { 
+				right: 22% !important; /* 向右侧推，给中心留白 */
+				top: 50% !important;
+			}
+
+			/* 左侧牌河：原来是 left: 30%，改为更靠左 */
+			.r-left { 
+				left: 22% !important; /* 向左侧推，给中心留白 */
+				top: 50% !important;
 			}
 			.r-bottom { bottom: 85px !important; } /* 牌河下边界下移，腾出空间给上方 */
 			.r-top { top: 55px !important; }
