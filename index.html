@@ -57,43 +57,25 @@
 		
 		/* 针对手机端扁平屏幕的专项适配 */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
-			/* 蓝框：当前轮到谁 */
+			/* 强制 body 允许溢出显示，否则边框会被切断 */
+			body, html { overflow: visible !important; }
+			
+			/* 2. 蓝框：当前玩家标记 (改用内发光+粗边框，防止被切) */
 			.active-player {
-				/* 1. 增加极其显眼的边框 */
-				outline: 4px solid #4a90e2 !important; 
-				outline-offset: 4px;
-				
-				/* 2. 增加半透明背景色，确保整个区域亮起来 */
-				background: rgba(74, 144, 226, 0.2) !important;
-				
-				/* 3. 强制提升层级，防止被中间的牌河盖住 */
-				z-index: 9999 !important;
-				
-				border-radius: 12px;
-				animation: pulse-blue 1.5s infinite; /* 增加呼吸灯效果，手机上更易察觉 */
+				outline: 4px solid #4a90e2 !important;
+				outline-offset: -2px !important; /* 向内偏移，确保不被容器切掉 */
+				background: rgba(74, 144, 226, 0.15) !important;
+				box-shadow: inset 0 0 15px rgba(74, 144, 226, 0.5) !important;
+				border-radius: 8px !important;
 			}
 
-			@keyframes pulse-blue {
-				0% { outline-color: rgba(74, 144, 226, 1); }
-				50% { outline-color: rgba(74, 144, 226, 0.3); }
-				100% { outline-color: rgba(74, 144, 226, 1); }
-			}
-
-			/* 红框：最后出的一张牌 */
+			/* 3. 红框：最后出的牌 (在手机端加粗并闪烁) */
 			.last-tile {
-				/* 使用 outline 而不是 border，因为 outline 不占空间，不会挤开邻近的牌 */
 				outline: 3px solid #ff4d4d !important;
-				outline-offset: 1px;
-				
-				/* 增加一个向内的红色阴影，确保即使边缘被切，内部也能看到红光 */
-				box-shadow: inset 0 0 10px #ff4d4d, 0 0 15px #ff4d4d !important;
-				
-				/* 强制在最上层 */
-				position: relative !important;
+				outline-offset: 2px !important;
+				box-shadow: 0 0 10px #ff4d4d !important;
+				animation: pulse-red 1s infinite !important;
 				z-index: 500 !important;
-				
-				/* 略微放大，一眼就能看到 */
-				transform: scale(1.1) translateY(-2px) !important;
 			}
 			
 			/* 1. 整体缩小所有牌 */
@@ -122,11 +104,12 @@
 			
 			/* 1. 强制缩小牌河，腾出中间空地 */
 			.river { 
-				grid-template-columns: repeat(6, 18px) !important; /* 进一步缩小牌河单张宽度 */
-				gap: 1px !important; 
+				grid-template-columns: repeat(10, 18px) !important; 
+				gap: 3px !important;
+				max-height: 80px !important;
 			}
-			.r-bottom { bottom: 85px !important; } /* 牌河下边界下移，腾出空间给上方 */
-			.r-top { top: 55px !important; }
+			.r-bottom { bottom: 85px !important; }
+			.r-top { top: 60px !important; }
 
 			/* 5. 选中蓝框逻辑修正 */
 			.tile.selected {
@@ -157,6 +140,12 @@
 				padding: 0 1px !important;
 				right: 0px !important;
 			}
+		}
+		
+		@keyframes pulse-red {
+			0% { outline-color: #ff4d4d; }
+			50% { outline-color: transparent; }
+			100% { outline-color: #ff4d4d; }
 		}
     </style>
 </head>
