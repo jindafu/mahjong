@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta charset="UTF-8">
     <title>松阳麻将</title>
     <style>
         :root { --soul-gold: #ceb07e; --jade-green: #1a3c34; --tile-w: 30px; --tile-h: 42px; --win-red: #ff4d4d; --draw-blue: #4a90e2; }
@@ -37,62 +37,47 @@
         .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
         .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
 		
-		/* --- 针对手机 Safari 扁平屏幕的专项补丁 --- */
+		/* --- 移动端专项补丁：解决太大、重叠、没颜色 --- */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
 			:root {
-				/* 1. 缩小牌河尺寸：防止把中间挤满 */
+				/* 1. 缩小牌河，腾出中间空间 */
 				--tile-w: 22px !important; 
 				--tile-h: 30px !important;
 			}
 
 			.tile { 
-				/* 2. 颜色修复：强制调用 Apple 彩色字体，并加上文字阴影辅助渲染 */
+				/* 2. 修正颜色：强制调用彩色字体 */
 				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
-				text-shadow: 0 0 0.5px rgba(0,0,0,0.1);
-				
-				/* 3. 尺寸修复：解决截图里“太大”的问题 */
+				/* 3. 修正尺寸：防止太大导致重叠 */
 				width: 38px !important; 
 				height: 52px !important; 
 				font-size: 1.6rem !important; 
 				box-shadow: 0 2px 0 #ccc !important;
-				border: 1px solid #ddd !important;
+				color: #000 !important;
 			}
 
-			/* 缩小牌河里的牌 */
-			.tile.tile-sm {
-				font-size: 1.1rem !important;
-			}
+			.tile.tile-sm { font-size: 1.1rem !important; }
 
-			/* 4. 布局修复：重置牌河网格，防止旋转后错位 */
+			/* 4. 重置网格，防止旋转后牌河乱跑 */
 			.river { 
 				grid-template-columns: repeat(6, 22px) !important; 
 				gap: 2px !important; 
 			}
 
-			/* 5. 压缩上下距离：适配被浏览器顶栏占用的空间 */
-			#area-0 { bottom: 2px !important; }
-			#area-2 { top: 2px !important; }
-			
-			/* 调整牌河位置，往中心靠拢 */
-			.r-bottom { bottom: 125px !important; }
+			/* 5. 压缩上下间距，适配 Safari 顶栏占位 */
+			#area-0 { bottom: 5px !important; }
+			#area-2 { top: 5px !important; }
+			.r-bottom { bottom: 120px !important; }
 			.r-top { top: 80px !important; }
-			.r-right { right: 28% !important; }
-			.r-left { left: 28% !important; }
 
-			/* 6. 按钮面板：缩小防止挡住牌 */
+			/* 6. 按钮面板缩小 */
 			#action-panel { 
-				bottom: 110px !important; 
-				transform: translateX(-50%) scale(0.65) !important; 
+				bottom: 105px !important; 
+				transform: translateX(-50%) scale(0.6) !important; 
 			}
 
-			/* 选牌蓝框位置修正 */
-			.tile.selected {
-				transform: translateY(-8px) !important;
-				border: 2px solid #007bff !important;
-			}
-
-			/* 隐藏不必要的UI或缩小它 */
-			.info-box { transform: scale(0.7); transform-origin: left top; }
+			/* 选牌蓝框高度微调 */
+			.tile.selected { transform: translateY(-8px) !important; }
 		}
     </style>
 </head>
@@ -122,7 +107,10 @@
 </div>
 
 <script>
-const ICONS = {'m':['🀇','🀈','🀉','🀊','🀋','🀌','🀍','🀎','🀏'],'s':['🀐','🀑','🀒','🀓','🀔','🀕','🀖','🀗','🀘'],'p':['🀙','🀚','🀛','🀜','🀝','🀞','🀟','🀠','🀡'],'z':['🀀','🀁','🀂','🀃','🀄','🀅','🀆']};
+const ICONS = {'m':['🀇\uFE0F','🀈\uFE0F','🀉\uFE0F','🀊\uFE0F','🀋\uFE0F','🀌\uFE0F','🀍\uFE0F','🀎\uFE0F','🀏\uFE0F'],
+'s':['🀐\uFE0F','🀑\uFE0F','🀒\uFE0F','🀓\uFE0F','🀔\uFE0F','🀕\uFE0F','🀖\uFE0F','🀗\uFE0F','🀘\uFE0F'],
+'p':['🀙\uFE0F','🀚\uFE0F','🀛\uFE0F','🀜\uFE0F','🀝\uFE0F','🀞\uFE0F','🀟\uFE0F','🀠\uFE0F','🀡\uFE0F'],
+'z':['🀀\uFE0F','🀁\uFE0F','🀂\uFE0F','🀃\uFE0F','🀄\uFE0F','🀅\uFE0F','🀆\uFE0F']};
 let game = { deck: [], bao: '', hands:[[],[],[],[]], melds:[[],[],[],[]], rivers:[[],[],[],[]], turn:0, winner:-1, lastPlayer:-1, lastTile:null, isTrueDraw:false, isGangState:false };
 
 function createTileDOM(t, isSmall, isBao, isFlip) {
