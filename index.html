@@ -106,7 +106,7 @@
 			.tile { 
 				width: 32px !important;    /* 原来50px，手机端减小到32px */
 				height: 44px !important; 
-				font-size: 1.4rem !important; 
+				font-size: 1.8rem !important; 
 				font-family: "Apple Color Emoji", sans-serif !important;
 				box-shadow: 0 2px 0 #ccc !important;
 				border: 1px solid #ddd !important;
@@ -114,17 +114,17 @@
 			
 			/* 2. 牌河牌进一步缩小 */
 			.tile.tile-sm { 
-				width: 20px !important; 
-				height: 28px !important; 
-				font-size: 0.9rem !important; 
+				width: 22px !important; 
+				height: 30px !important; 
+				font-size: 1.1rem !important; 
 			}
 
 			/* 3. 修正定位：把手牌压到底部，给牌河留位置 */
 			#area-0 { bottom: 0px !important; }
 			#area-2 { top: 0px !important; }
 			/* 3. 左右两家（1号和3号）手牌往两侧挪，防止挡住中间 */
-			#area-1 { right: -50px !important; scale: 0.8; }
-			#area-3 { left: -50px !important; scale: 0.8; }
+			#area-1 { right: -60px !important; scale: 0.8; }
+			#area-3 { left: -60px !important; scale: 0.8; }
 			
 			/* 1. 强制缩小牌河，腾出中间空地 */
 			.river { 
@@ -133,13 +133,13 @@
 			}
 			/* 右侧牌河：原来是 right: 30%，改为更靠右 */
 			.r-right { 
-				right: 22% !important; /* 向右侧推，给中心留白 */
+				right: 25% !important; /* 向右侧推，给中心留白 */
 				top: 50% !important;
 			}
 
 			/* 左侧牌河：原来是 left: 30%，改为更靠左 */
 			.r-left { 
-				left: 22% !important; /* 向左侧推，给中心留白 */
+				left: 25% !important; /* 向左侧推，给中心留白 */
 				top: 50% !important;
 			}
 			.r-bottom { bottom: 85px !important; } /* 牌河下边界下移，腾出空间给上方 */
@@ -157,12 +157,13 @@
 				transform: translateX(-50%) scale(0.6) !important; 
 			}
 			.info-box { 
-				top: 2px !important; left: 2px !important;
+				top: 2px !important; left: 15px !important;
 				transform: scale(0.7) !important;
 				transform-origin: left top;
 				display: flex !important; align-items: center; gap: 5px;
 			}
 			#bao-display {
+				font-size: 1.7rem !important;
 				margin-bottom: 0 !important; /* 取消底部间距 */
 				width: 32px !important;
 				height: 44px !important;
