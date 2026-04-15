@@ -14,7 +14,10 @@
         #area-1 { right: 30px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
         #area-3 { left: 30px; top: 50%; transform: translateY(-50%) rotate(90deg); }
 
-        .tile { width: 50px; height: 68px; background: #fffdf5; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2rem; position: relative; box-shadow: 0 4px 0 #ccc; border: 1.5px solid #ddd; cursor: pointer; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", serif;}
+        .tile { width: 50px; height: 68px; background: #fffdf5; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2rem; position: relative; box-shadow: 0 4px 0 #ccc; border: 1.5px solid #ddd; cursor: pointer; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "STKaiti", serif;
+		color: #2d5a4c; /* 设置一个基础深绿色 */
+		text-shadow: 0.5px 0.5px 0px #000; /* 增加轮廓感 */
+		}
         .tile.tile-sm { width: var(--tile-w); height: var(--tile-h); font-size: 1.2rem; cursor: default; box-shadow: 0 2px 0 #bbb; }
         .is-flipped { background: linear-gradient(135deg, #2a5040, #1a3c34) !important; color: transparent !important; border: 1px solid #1a3026 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 0 2px 0 #111 !important; }
         .is-last-draw { margin-left: 25px !important; border: 3px solid var(--draw-blue) !important; box-shadow: 0 0 20px var(--draw-blue) !important; transform: translateY(-12px); }
@@ -36,6 +39,21 @@
         .res-card { background: var(--jade-green); padding: 30px; border-radius: 20px; border: 3px solid var(--soul-gold); text-align: center; color: white; width: 850px; }
         .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
         .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
+		
+		/* 基础样式：增加层级并调整位置 */
+		.info-box { 
+			position: fixed; 
+			top: env(safe-area-inset-top, 20px); /* 适配手机灵动岛/刘海屏 */
+			left: 10px; 
+			z-index: 9999; /* 确保在最上层 */
+			background: rgba(0,0,0,0.85); 
+			padding: 8px; 
+			border-radius: 8px; 
+			border: 2px solid var(--soul-gold); 
+			color: white; 
+			text-align: center;
+			box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+		}
 		
 		/* 针对手机端扁平屏幕的专项适配 */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
@@ -81,11 +99,17 @@
 				transform: translateX(-50%) scale(0.6) !important; 
 			}
 			.info-box { 
-				transform: scale(0.6); 
-				transform-origin: left top; 
+				transform: scale(0.85) !important; 
 				top: 5px !important; 
-				left: 5px !important; 
-				padding: 8px !important;
+				left: 5px !important;
+				display: flex !important; /* 让财神牌和文字横向排列，节省高度 */
+				align-items: center;
+				gap: 8px;
+			}
+			#bao-display {
+				margin-bottom: 0 !important; /* 取消底部间距 */
+				width: 32px !important;
+				height: 44px !important;
 			}
 
 			/* 财神标志修正 */
@@ -123,16 +147,36 @@
 </div>
 
 <script>
-const ICONS = {'m':['🀇\uFE0F','🀈\uFE0F','🀉\uFE0F','🀊\uFE0F','🀋\uFE0F','🀌\uFE0F','🀍\uFE0F','🀎\uFE0F','🀏\uFE0F'],
-'s':['🀐\uFE0F','🀑\uFE0F','🀒\uFE0F','🀓\uFE0F','🀔\uFE0F','🀕\uFE0F','🀖\uFE0F','🀗\uFE0F','🀘\uFE0F'],
-'p':['🀙\uFE0F','🀚\uFE0F','🀛\uFE0F','🀜\uFE0F','🀝\uFE0F','🀞\uFE0F','🀟\uFE0F','🀠\uFE0F','🀡\uFE0F'],
-'z':['🀀\uFE0F','🀁\uFE0F','🀂\uFE0F','🀃\uFE0F','🀄\uFE0F','🀅\uFE0F','🀆\uFE0F']};
+const ICONS = {
+    'm':['🀇','🀈','🀉','🀊','🀋','🀌','🀍','🀎','🀏'],
+    's':['🀐','🀑','🀒','🀓','🀔','🀕','🀖','🀗','🀘'],
+    'p':['🀙','🀚','🀛','🀜','🀝','🀞','🀟','🀠','🀡'],
+    'z':['🀀','🀁','🀂','🀃','🀄','🀅','🀆']
+};
 let game = { deck: [], bao: '', hands:[[],[],[],[]], melds:[[],[],[],[]], rivers:[[],[],[],[]], turn:0, winner:-1, lastPlayer:-1, lastTile:null, isTrueDraw:false, isGangState:false };
 
 function createTileDOM(t, isSmall, isBao, isFlip) {
     const d = document.createElement('div');
     d.className = `tile ${isSmall?'tile-sm':''} ${isBao?'is-bao':''} ${isFlip?'is-flipped':''}`;
-    if(!isFlip) d.innerText = ICONS[t[1]][parseInt(t[0])-1];
+    
+    if(!isFlip) {
+        const val = parseInt(t[0]);
+        const type = t[1];
+        d.innerText = ICONS[type][val-1];
+
+        // 颜色着色逻辑
+        if (type === 'm') d.style.color = '#e43333'; // 万字：红色
+        if (type === 's') d.style.color = '#27ae60'; // 条子：绿色
+        if (type === 'p') d.style.color = '#2980b9'; // 筒子：蓝色
+        if (type === 'z') {
+            if (val <= 4) d.style.color = '#2c3e50'; // 风牌：深灰色
+            if (val === 5) d.style.color = '#e74c3c'; // 中：鲜红
+            if (val === 6) d.style.color = '#2ecc71'; // 发：翠绿
+            if (val === 7) d.style.color = '#3498db'; // 白：天蓝
+        }
+        // 增加文字阴影让图标更立体
+        d.style.textShadow = "1px 1px 0px rgba(0,0,0,0.2)";
+    }
     return d;
 }
 
