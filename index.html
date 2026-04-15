@@ -841,31 +841,45 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
             canHu = true; yakus.push(buda); 
         } else {
             // 1. 判定普通胡（非爆头）：寻找将牌
+            let normalHu = false;
             for (let t of [...new Set(others)]) {
                 let temp = [...others];
                 if (temp.filter(x => x === t).length >= 2) {
                     let tempArr = [...temp];
                     tempArr.splice(tempArr.indexOf(t), 2); 
-                    if (canDiv(tempArr, bs)) { canHu = true; }
-                }
-            }
-            // 2. 判定爆头（财神头）：12张成型 + 1张财神 + 1张单张
-            // 逻辑：只要去掉一张非财神的牌(t)，剩下的牌能配合(bs-1)个财神完成4个面子，即为爆头
-            if (bs >= 1) {
-                for (let t of [...new Set(others)]) {
-                    let temp = [...others];
-                    temp.splice(temp.indexOf(t), 1);
-                    if (canDiv(temp, bs - 1)) { 
+                    if (canDiv(tempArr, bs)) { 
                         canHu = true; 
-                        isBaoTou = true; 
-                        break; 
+                        normalHu = true; 
                     }
                 }
             }
-            // 3. 判定双财神爆头：去掉两个财神，剩下的 others 能完成4个面子
-            if (!isBaoTou && bs >= 2 && canDiv(others, bs - 2)) { 
-                canHu = true; 
-                isBaoTou = true; 
+			
+            // 2. 判定“爆头”：12张牌已成型，最后剩一张废牌+一张财神
+            // 逻辑：尝试从 others 中拿走任意一张牌 t，看剩下的牌能否与 (bs-1) 个财神组成 4 个面子
+            if (bs >= 1) {
+                for (let t of [...new Set(others)]) {
+                    let temp = [...others];
+                    temp.splice(temp.indexOf(t), 1); // 拿掉那张“最后摸到”或“待切”的单张
+                    if (canDiv(temp, bs - 1)) { 
+                        // 关键修正：如果手里已经能普通胡了（比如你有三张七饼+中+财神），
+                        // 在打出“中”之前，它应该只是普通自摸，不触发爆头。
+                        // 只有当你无法组成普通胡，或者刻意追求爆头番数时才判定。
+                        if (!normalHu || bs >= 2) {
+                            canHu = true; 
+                            isBaoTou = true; 
+                            break; 
+                        }
+                    }
+                }
+                
+                // 3. 判定“多财神爆头”（双财神或三财神爆头）
+                // 如果手里有两个及以上财神，且拿走两个财神后，剩下的牌能组成4个面子
+                if (!isBaoTou && bs >= 2) {
+                    if (canDiv(others, bs - 2)) {
+                        canHu = true;
+                        isBaoTou = true;
+                    }
+                }
             }
         }
     }
