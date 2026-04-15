@@ -37,47 +37,63 @@
         .res-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
         .res-meld-group { display: flex; gap: 4px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
 		
-		/* --- 移动端专项补丁：解决太大、重叠、没颜色 --- */
+		/* 针对手机端扁平屏幕的专项适配 */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
-			:root {
-				/* 1. 缩小牌河，腾出中间空间 */
-				--tile-w: 22px !important; 
-				--tile-h: 30px !important;
-			}
-
+			/* 1. 整体缩小所有牌 */
 			.tile { 
-				/* 2. 修正颜色：强制调用彩色字体 */
-				font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
-				/* 3. 修正尺寸：防止太大导致重叠 */
-				width: 38px !important; 
-				height: 52px !important; 
-				font-size: 1.6rem !important; 
+				width: 32px !important;    /* 原来50px，手机端减小到32px */
+				height: 44px !important; 
+				font-size: 1.4rem !important; 
+				font-family: "Apple Color Emoji", sans-serif !important;
 				box-shadow: 0 2px 0 #ccc !important;
-				color: #000 !important;
+				border: 1px solid #ddd !important;
+			}
+			
+			/* 2. 牌河牌进一步缩小 */
+			.tile.tile-sm { 
+				width: 20px !important; 
+				height: 28px !important; 
+				font-size: 0.9rem !important; 
 			}
 
-			.tile.tile-sm { font-size: 1.1rem !important; }
-
-			/* 4. 重置网格，防止旋转后牌河乱跑 */
+			/* 3. 修正定位：把手牌压到底部，给牌河留位置 */
+			#area-0 { bottom: 2px !important; }
+			#area-2 { top: 2px !important; }
+			
+			/* 4. 强制重置牌河网格，防止重叠 */
 			.river { 
-				grid-template-columns: repeat(6, 22px) !important; 
+				grid-template-columns: repeat(6, 20px) !important; 
 				gap: 2px !important; 
+				/* 强制往屏幕中心挪，防止被四周挡住 */
+			}
+			.r-bottom { bottom: 100px !important; } /* 原来195px，大大降低 */
+			.r-top { top: 65px !important; }
+
+			/* 5. 选中蓝框逻辑修正 */
+			.tile.selected {
+				transform: translateY(-6px) !important;
+				border: 2px solid #007bff !important;
 			}
 
-			/* 5. 压缩上下间距，适配 Safari 顶栏占位 */
-			#area-0 { bottom: 5px !important; }
-			#area-2 { top: 5px !important; }
-			.r-bottom { bottom: 120px !important; }
-			.r-top { top: 80px !important; }
-
-			/* 6. 按钮面板缩小 */
+			/* 6. 操作按钮和UI信息框 */
 			#action-panel { 
-				bottom: 105px !important; 
+				bottom: 90px !important; 
 				transform: translateX(-50%) scale(0.6) !important; 
 			}
+			.info-box { 
+				transform: scale(0.6); 
+				transform-origin: left top; 
+				top: 5px !important; 
+				left: 5px !important; 
+				padding: 8px !important;
+			}
 
-			/* 选牌蓝框高度微调 */
-			.tile.selected { transform: translateY(-8px) !important; }
+			/* 财神标志修正 */
+			.tile::after {
+				font-size: 0.5rem !important;
+				padding: 0 1px !important;
+				right: 0px !important;
+			}
 		}
     </style>
 </head>
