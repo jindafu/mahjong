@@ -58,25 +58,35 @@
 		/* 针对手机端扁平屏幕的专项适配 */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
 			/* 核心：必须允许溢出，否则阴影和边框会被裁切 */
-	.river, .player-container { overflow: visible !important; }
-	/* 蓝框：当前玩家标记 */
-    .is-last-draw {
-        /* 使用 outline 替代 box-shadow，因为 outline 在手机端渲染最稳定 */
-        outline: 4px solid #4a90e2 !important;
-        outline-offset: 2px;
-        background: rgba(74, 144, 226, 0.1) !important;
-        border-radius: 8px;
-    }
+			.river, .player-container { overflow: visible !important; }
+			/* 蓝框：当前玩家标记 */
+			.is-last-draw {
+				/* 容器外框：柔和的蓝色发光 */
+				outline: none !important; 
+				box-shadow: 0 0 15px rgba(74, 144, 226, 0.8) !important;
+				border-radius: 10px !important;
+				background: rgba(74, 144, 226, 0.1) !important; /* 整体容器淡淡的底色 */
+				padding: 2px !important;
+			}
+			
+			/* 关键：给蓝框里的每一张牌加上底色 */
+			.is-last-draw .tile {
+				background: rgba(255, 255, 255, 0.9) !important; /* 牌面变亮白色 */
+				box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+				border: 1px solid #4a90e2 !important; /* 给每张牌加个细蓝边 */
+			}
 
-    /* 红框：最后出的一张牌 */
-    .global-last-discard{
-        outline: 3px solid #ff4d4d !important;
-        outline-offset: 1px;
-        position: relative !important;
-        z-index: 500 !important; /* 确保它在所有牌的最上层 */
-        transform: scale(1.1) !important; /* 稍微放大一点，更显眼 */
-        box-shadow: 0 0 10px #ff4d4d !important;
-    }
+			/* 红框：最后出的一张牌 */
+			.global-last-discard{
+				outline: none !important;
+				/* 使用红色渐变边框效果 */
+				border: 2px solid #ff4d4d !important;
+				box-shadow: 0 0 10px #ff4d4d, inset 0 0 5px #ff4d4d !important;
+				position: relative !important;
+				z-index: 500 !important;
+				animation: breath-red 1.5s infinite ease-in-out !important;
+			}
+			
 			/* 1. 整体缩小所有牌 */
 			.tile { 
 				width: 32px !important;    /* 原来50px，手机端减小到32px */
@@ -138,6 +148,13 @@
 				padding: 0 1px !important;
 				right: 0px !important;
 			}
+		}
+		
+		/* 呼吸灯动画 */
+		@keyframes breath-red {
+			0% { box-shadow: 0 0 5px #ff4d4d, inset 0 0 2px #ff4d4d; transform: scale(1); }
+			50% { box-shadow: 0 0 15px #ff4d4d, inset 0 0 8px #ff4d4d; transform: scale(1.05); }
+			100% { box-shadow: 0 0 5px #ff4d4d, inset 0 0 2px #ff4d4d; transform: scale(1); }
 		}
     </style>
 </head>
