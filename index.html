@@ -75,17 +75,19 @@
 			}
 
 			/* 3. 修正定位：把手牌压到底部，给牌河留位置 */
-			#area-0 { bottom: 2px !important; }
-			#area-2 { top: 2px !important; }
+			#area-0 { bottom: 0px !important; }
+			#area-2 { top: 0px !important; }
+			/* 3. 左右两家（1号和3号）手牌往两侧挪，防止挡住中间 */
+			#area-1 { right: 10px !important; scale: 0.8; }
+			#area-3 { left: 10px !important; scale: 0.8; }
 			
-			/* 4. 强制重置牌河网格，防止重叠 */
+			/* 1. 强制缩小牌河，腾出中间空地 */
 			.river { 
-				grid-template-columns: repeat(6, 20px) !important; 
-				gap: 2px !important; 
-				/* 强制往屏幕中心挪，防止被四周挡住 */
+				grid-template-columns: repeat(6, 18px) !important; /* 进一步缩小牌河单张宽度 */
+				gap: 1px !important; 
 			}
-			.r-bottom { bottom: 100px !important; } /* 原来195px，大大降低 */
-			.r-top { top: 65px !important; }
+			.r-bottom { bottom: 85px !important; } /* 牌河下边界下移，腾出空间给上方 */
+			.r-top { top: 55px !important; }
 
 			/* 5. 选中蓝框逻辑修正 */
 			.tile.selected {
@@ -99,12 +101,10 @@
 				transform: translateX(-50%) scale(0.6) !important; 
 			}
 			.info-box { 
-				transform: scale(0.85) !important; 
-				top: 5px !important; 
-				left: 5px !important;
-				display: flex !important; /* 让财神牌和文字横向排列，节省高度 */
-				align-items: center;
-				gap: 8px;
+				top: 2px !important; left: 2px !important;
+				transform: scale(0.7) !important;
+				transform-origin: left top;
+				display: flex !important; align-items: center; gap: 5px;
 			}
 			#bao-display {
 				margin-bottom: 0 !important; /* 取消底部间距 */
@@ -1036,8 +1036,15 @@ function handleWin(pIdx) {
 
 function init() {
     document.getElementById('result-screen').style.display = 'none';
-    let all = []; ['m','s','p'].forEach(s => {for(let n=1;n<=9;n++) for(let i=0;i<4;i++) all.push(n+s)}); 
+    let all = []; 
+    ['m','s','p'].forEach(s => {for(let n=1;n<=9;n++) for(let i=0;i<4;i++) all.push(n+s)}); 
     for(let n=1;n<=7;n++) for(let i=0;i<4;i++) all.push(n+'z');
+
+    // --- 修复：使用更公平的洗牌算法 ---
+    for (let i = all.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [all[i], all[j]] = [all[j], all[i]];
+    }
     game = { 
         deck: all.sort(()=>Math.random()-0.5), 
         hands:[[],[],[],[]], 
