@@ -57,6 +57,25 @@
 		
 		/* 针对手机端扁平屏幕的专项适配 */
 		@media screen and (max-width: 950px) and (orientation: landscape) {
+			/* 核心修复：确保发光和边框不被父元素切割 */
+			.player-container, .river, .hand {
+				overflow: visible !important; 
+			}
+			/* 蓝框：当前轮到谁。手机端发光要加粗，颜色要深 */
+			.active-player {
+				box-shadow: 0 0 12px 6px #007bff !important; /* 增加发光半径 */
+				background: rgba(0, 123, 255, 0.2); /* 增加一层淡蓝色底色，防止光效看不清 */
+				border-radius: 8px;
+			}
+
+			/* 红框：最后出的一张牌。手机端改用内边框或更显眼的样式 */
+			.last-tile {
+				outline: 3px solid #ff4d4d !important; /* 使用 outline 代替 border，不占位 */
+				outline-offset: 1px;
+				box-shadow: 0 0 10px #ff4d4d !important;
+				position: relative;
+				z-index: 100;
+			}
 			/* 1. 整体缩小所有牌 */
 			.tile { 
 				width: 32px !important;    /* 原来50px，手机端减小到32px */
