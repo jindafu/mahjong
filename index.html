@@ -829,13 +829,27 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
     let yakus = [{name: "自摸", base: 2}];
     let canHu = false, isBaoTou = false;
     let isDanDiao = (handLength === 2); 
-
+	
+	// --- 1. 预处理：全字判定（特殊胡牌，不需要成面子） ---
+    let allTiles = [...others]; 
+    melds.forEach(m => allTiles.push(...m.tiles));
+    // 检查是否所有牌都是字牌 (z)
+    const isAllHonor = allTiles.every(t => typeof t === 'string' && t.endsWith('z'));
+    
+    // --- 2. 基础胡牌逻辑判定 ---
+    if (isAllHonor) {
+        canHu = true;
+        yakus.push({name: "全字", mul: 16});
+    }
+	
+	//检查七对
     let sevenRes = (handLength === targetTotal) ? checkSevenPairs(others, bs, targetTotal) : {success:false};
     
     if (sevenRes.success) {
         canHu = true; yakus.push({name: "七对", mul: 2}); 
         if (sevenRes.isBao) isBaoTou = true;
     } else {
+		// 检查不搭
         let buda = null;
 		if (melds.length === 0) {
 			// 构建一个“逻辑全手牌”：非财神牌(others) + 真正的财神
@@ -899,14 +913,9 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
             }
         }
     }
-
+	
+	// 如果最终没能达成任何胡牌条件，返回0
     if(!canHu) return {total: 0};
-
-    // --- 后续逻辑（全字、飘财、番数计算等）保持不变 ---
-    let allTiles = [...others]; 
-    melds.forEach(m => allTiles.push(...m.tiles));
-    const isAllHonor = allTiles.every(t => typeof t === 'string' && t.endsWith('z'));
-    if (isAllHonor) yakus.push({name: "全字", mul: 16});
     
     if (baoType === "包") yakus.push({name: "包", base: 0});
     else if (baoType === "反包") yakus.push({name: "反包", base: 0});
