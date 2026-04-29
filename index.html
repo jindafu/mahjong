@@ -784,7 +784,7 @@ function calculateYaku(hand, melds, isGang) {
     if (game.bao === '7z') {
         let bs = hand.filter(x => x === game.bao).length;
         let others = hand.filter(x => x !== game.bao).sort();
-        return calculateYakuCore(others, bs, melds, isGang, hand.length);
+		return calculateYakuCore(others, bs, melds, isGang, hand.length, baoType, targetTotal);
     }
 
     let baseOthers = hand.filter(x => x !== game.bao && x !== '7z');
@@ -816,7 +816,7 @@ function calculateYaku(hand, melds, isGang) {
             });
 
             // 针对这一种组合，去算番  
-			let res = calculateYakuCore(currentOthers, bs, currentMelds, isGang, hand.length, baoType);
+			let res = calculateYakuCore(currentOthers, bs, currentMelds, isGang, hand.length, baoType, targetTotal);
 			// 记录番数最大的打法
             if (res.total > bestResult.total) bestResult = res;
         }
@@ -894,7 +894,7 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
                         // 关键修正：如果手里已经能普通胡了（比如你有三张七饼+中+财神），
                         // 在打出“中”之前，它应该只是普通自摸，不触发爆头。
                         // 只有当你无法组成普通胡，或者刻意追求爆头番数时才判定。
-                        if (!normalHu || bs >= 2) {
+                        if (!normalHu) {
                             canHu = true; 
                             isBaoTou = true; 
                             break; 
@@ -904,11 +904,9 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
                 
                 // 3. 判定“多财神爆头”（双财神或三财神爆头）
                 // 如果手里有两个及以上财神，且拿走两个财神后，剩下的牌能组成4个面子
-                if (!isBaoTou && bs >= 2) {
-                    if (canDiv(others, bs - 2)) {
-                        canHu = true;
-                        isBaoTou = true;
-                    }
+                if (!isBaoTou && !normalHu && bs >= 2 && canDiv(others, bs - 2)) {
+                    canHu = true; 
+                    isBaoTou = true;
                 }
             }
         }
@@ -1088,7 +1086,7 @@ function checkSevenPairs(others, bs, targetTotal) {
         // 判定财神头（爆头）：
         // 如果财神数量 > 0，且扣除一个财神后，剩下的牌依然能凑成七对（即单张数 <= 剩余财神数）
         // 这意味着最后一个财神是“多出来”的，形成了 12(成型) + 1(单张) + 1(财神) 的爆头结构
-        if (bs > 0 && singleTiles <= (bs - 1)) {
+        if (bs > singleTiles && bs > 0) {
             isBao = true;
         }
     }
