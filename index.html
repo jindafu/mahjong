@@ -299,6 +299,7 @@ function render(reveal = false) {
 function discard(idx) {
     document.getElementById('action-panel').style.display = 'none';
     game.isGangState = false; 
+	game.consecutiveGangCount = 0; // 出牌了说明连杠中断，重置
     
     let hand = game.hands[0];
     let t = hand[idx];
@@ -486,6 +487,10 @@ function renderChiOptions(sets, tile, fromIdx, callback) {
 
 function handleAction(decision, pIdx, tile, fromIdx) {
     let type = typeof decision === 'string' ? decision : decision.type;
+	// 如果进行的不是杠操作，且也不是胡牌结算，说明连杠中断
+    if (type !== 'GANG' && type !== 'HU') {
+        game.consecutiveGangCount = 0;
+    }
     let h = game.hands[pIdx];
     if (type === 'HU') { handleWin(pIdx); return; }
     
@@ -542,6 +547,8 @@ function handleAction(decision, pIdx, tile, fromIdx) {
             if (fromIdx !== -1) game.rivers[fromIdx].pop();
         }
         
+        // 触发杠牌，连续杠牌次数自增
+        game.consecutiveGangCount = (game.consecutiveGangCount || 0) + 1;
         game.isGangState = true; 
         game.isTrueDraw = false;
         render(); setTimeout(() => nextTurn(pIdx), 600); return;
@@ -678,7 +685,9 @@ function nextTurn(pIdx) {
                 let gTile = buGangTiles.length > 0 ? buGangTiles[0] : Object.keys(counts).find(k=>counts[k]===4);
                 handleAction('GANG', pIdx, gTile, -1);
             } else {
-                game.isGangState = false; aiPlay(pIdx);
+                game.isGangState = false; 
+				game.consecutiveGangCount = 0; // AI没有选择继续杠，重置
+				aiPlay(pIdx);
             }
         }
     }, 600);
@@ -870,43 +879,37 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
         if(buda) { 
             canHu = true; yakus.push(buda); 
         } else {
-            // 1. 判定普通胡（非爆头）：寻找将牌
-            let normalHu = false;
-            for (let t of [...new Set(others)]) {
-                let temp = [...others];
-                if (temp.filter(x => x === t).length >= 2) {
-                    let tempArr = [...temp];
-                    tempArr.splice(tempArr.indexOf(t), 2); 
-                    if (canDiv(tempArr, bs)) { 
-                        canHu = true; 
-                        normalHu = true; 
+            // 1. 优先判定“多财神爆头”（双财神或三财神爆头）
+            // 如果手里有两个及以上财神，且拿走两个财神做将后，剩下的牌能完美组成面子
+            if (bs >= 2 && canDiv(others, bs - 2)) {
+                canHu = true;
+                isBaoTou = true;
+            }
+
+            // 2. 判定单财神爆头：12张牌已成型，剩下一张单张废牌 + 一张财神爆头
+            if (!isBaoTou && bs >= 1) {
+                for (let t of [...new Set(others)]) {
+                    let temp = [...others];
+                    temp.splice(temp.indexOf(t), 1); 
+                    if (canDiv(temp, bs - 1)) {
+                        canHu = true;
+                        isBaoTou = true;
+                        break;
                     }
                 }
             }
-			
-            // 2. 判定“爆头”：12张牌已成型，最后剩一张废牌+一张财神
-            // 逻辑：尝试从 others 中拿走任意一张牌 t，看剩下的牌能否与 (bs-1) 个财神组成 4 个面子
-            if (bs >= 1) {
+
+            // 3. 判定普通胡（非爆头）：寻找将牌（仅在未触发爆头时作为兜底或常规判定）
+            if (!isBaoTou) {
                 for (let t of [...new Set(others)]) {
                     let temp = [...others];
-                    temp.splice(temp.indexOf(t), 1); // 拿掉那张“最后摸到”或“待切”的单张
-                    if (canDiv(temp, bs - 1)) { 
-                        // 关键修正：如果手里已经能普通胡了（比如你有三张七饼+中+财神），
-                        // 在打出“中”之前，它应该只是普通自摸，不触发爆头。
-                        // 只有当你无法组成普通胡，或者刻意追求爆头番数时才判定。
-                        if (!normalHu) {
+                    if (temp.filter(x => x === t).length >= 2) {
+                        let tempArr = [...temp];
+                        tempArr.splice(tempArr.indexOf(t), 2); 
+                        if (canDiv(tempArr, bs)) { 
                             canHu = true; 
-                            isBaoTou = true; 
-                            break; 
                         }
                     }
-                }
-                
-                // 3. 判定“多财神爆头”（双财神或三财神爆头）
-                // 如果手里有两个及以上财神，且拿走两个财神后，剩下的牌能组成4个面子
-                if (!isBaoTou && !normalHu && bs >= 2 && canDiv(others, bs - 2)) {
-                    canHu = true; 
-                    isBaoTou = true;
                 }
             }
         }
@@ -926,7 +929,13 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
 
     if(isBaoTou) yakus.push({name: "财神头", mul: 2});
     if(isDanDiao) yakus.push({name: "单吊", mul: 2});
-    if(isGang) yakus.push({name: "杠开", mul: 2});
+    if(isGang) {
+        yakus.push({name: "杠开", mul: 2});
+        // --- 新增：如果是在连续杠牌2次及以上时胡牌，追加双连杠番型 ---
+        if (game.consecutiveGangCount >= 2) {
+            yakus.push({name: "双连杠", mul: 2});
+        }
+    }
     
     let colorYaku = checkColors(others, melds);
     if(colorYaku) yakus.push(colorYaku);
@@ -1125,12 +1134,33 @@ function checkDuiDuiHu(others, bs, melds) {
 }
 
 function checkColors(others, melds) {
-    let normalTiles = [...others];
-    melds.forEach(m => normalTiles.push(...m.tiles));
-    let types = new Set(normalTiles.map(t => t[1]));
-    let hasZi = types.has('z'); types.delete('z'); 
-    if (types.size === 1) return hasZi ? {name: "混一色", mul: 2} : {name: "清一色", mul: 4};
-    if (types.size === 0) return {name: "清一色", mul: 4}; 
+    let allTiles = [...others];
+    melds.forEach(m => allTiles.push(...m.tiles));
+    
+    let suits = new Set();
+    let hasZi = false;
+    
+    allTiles.forEach(t => {
+        let s = t.replace(/[0-9]/, '');
+        if (s === 'z') hasZi = true;
+        else suits.add(s);
+    });
+    
+    // 1. 如果全都是字牌，直接返回“字一色”，不再向下参与清一色和混一色的判定
+    if (suits.size === 0 && hasZi) {
+        return { name: "字一色", mul: 4 };
+    }
+    
+    // 2. 清一色：只能有一种序数牌（万条饼），且绝对不能包含字牌
+    if (suits.size === 1 && !hasZi) {
+        return { name: "清一色", mul: 4 };
+    }
+    
+    // 3. 混一色：只能有一种序数牌（万条饼），且必须包含字牌
+    if (suits.size === 1 && hasZi) {
+        return { name: "混一色", mul: 2 };
+    }
+    
     return null;
 }
 
@@ -1194,7 +1224,9 @@ function init() {
 		piaoTriggerIdx: -1,
         // --- 新增重置 ---
         isQiangGangEvent: false,
-        isQiangGangAttempt: null
+        isQiangGangAttempt: null,
+		// --- 新增：连续杠牌计数器 ---
+        consecutiveGangCount: 0
     };
     game.bao = game.deck.pop(); 
     document.getElementById('bao-display').innerText = ICONS[game.bao[1]][parseInt(game.bao[0])-1];
