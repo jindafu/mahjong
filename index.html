@@ -839,18 +839,6 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
     let canHu = false, isBaoTou = false;
     let isDanDiao = (handLength === 2); 
 	
-	// --- 1. 预处理：全字判定（特殊胡牌，不需要成面子） ---
-    let allTiles = [...others]; 
-    melds.forEach(m => allTiles.push(...m.tiles));
-    // 检查是否所有牌都是字牌 (z)
-    const isAllHonor = allTiles.every(t => typeof t === 'string' && t.endsWith('z'));
-    
-    // --- 2. 基础胡牌逻辑判定 ---
-    if (isAllHonor) {
-        canHu = true;
-        yakus.push({name: "全字", mul: 16});
-    }
-	
 	//检查七对
     let sevenRes = (handLength === targetTotal) ? checkSevenPairs(others, bs, targetTotal) : {success:false};
     
@@ -913,6 +901,14 @@ function calculateYakuCore(others, bs, melds, isGang, handLength, baoType, targe
                 }
             }
         }
+    }
+	
+	// 如果是全字牌，虽然普通面子拆解不过去，但依然需要允许其通过字一色胡牌
+    let allTiles = [...others]; 
+    melds.forEach(m => allTiles.push(...m.tiles));
+    const isAllHonor = allTiles.every(t => typeof t === 'string' && t.endsWith('z'));
+    if (isAllHonor) {
+        canHu = true;
     }
 	
 	// 如果最终没能达成任何胡牌条件，返回0
@@ -1134,32 +1130,23 @@ function checkDuiDuiHu(others, bs, melds) {
 }
 
 function checkColors(others, melds) {
-    let allTiles = [...others];
-    melds.forEach(m => allTiles.push(...m.tiles));
+    let normalTiles = [...others];
+    melds.forEach(m => normalTiles.push(...m.tiles));
     
-    let suits = new Set();
-    let hasZi = false;
+    let types = new Set(normalTiles.map(t => t[1]));
+    let hasZi = types.has('z'); 
+    types.delete('z'); // 移除字牌，只保留万(m)、条(s)、筒(p)
     
-    allTiles.forEach(t => {
-        let s = t.replace(/[0-9]/, '');
-        if (s === 'z') hasZi = true;
-        else suits.add(s);
-    });
-    
-    // 1. 如果全都是字牌，直接返回“字一色”，不再向下参与清一色和混一色的判定
-    if (suits.size === 0 && hasZi) {
-        return { name: "字一色", mul: 4 };
+    // 核心修正：如果移除字牌后没有任何序数牌，说明整手牌全是字牌，触发最高级“字一色 16番”，且绝对不返回清一色
+    if (types.size === 0) {
+        return {name: "字一色", mul: 16};
     }
     
-    // 2. 清一色：只能有一种序数牌（万条饼），且绝对不能包含字牌
-    if (suits.size === 1 && !hasZi) {
-        return { name: "清一色", mul: 4 };
-    }
+    // 清一色：手牌里只有一种序数牌，且绝对没有字牌
+    if (types.size === 1 && !hasZi) return {name: "清一色", mul: 4};
     
-    // 3. 混一色：只能有一种序数牌（万条饼），且必须包含字牌
-    if (suits.size === 1 && hasZi) {
-        return { name: "混一色", mul: 2 };
-    }
+    // 混一色：手牌里只有一种序数牌，且必须包含字牌
+    if (types.size === 1 && hasZi) return {name: "混一色", mul: 2};
     
     return null;
 }
